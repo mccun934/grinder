@@ -20,6 +20,10 @@ import pdb
 import StringIO
 import xmlrpclib
 import xml.dom.minidom
+import hashlib 
+import httplib
+import urlparse
+import time
 
 from optparse import Option, OptionParser
 
@@ -58,14 +62,10 @@ class GzipDecodedString(gzip.GzipFile if gzip else object):
         self.stringio.close()
 
 
-##
-## Look at "extra_headers in Transport"  
-##
-class RHNTransport(xmlrpclib.Transport):
+class TransportWithHeaders(xmlrpclib.Transport):
     def __init__(self):
         xmlrpclib.Transport.__init__(self)
         self.props = {}
-        self.addProperty("X-RHN-Satellite-XML-Dump-Version", "3.3")
 
     def addProperty(self, key, value):
         self.props[key] = value
@@ -74,11 +74,10 @@ class RHNTransport(xmlrpclib.Transport):
         return self.props[key]
 
     def send_host(self, connection, host):
-        # print "self.props = ", self.props
         for key in self.props:
-            # print "setting header for %s = %s" % (key, self.props[key])
             connection.putheader(key, self.props[key])
 
+class RHNTransport(TransportWithHeaders):
     ##
     # Parse response (alternate interface).  This is similar to the
     # parse_response method, but also provides direct access to the
@@ -159,21 +158,28 @@ class Grinder():
         # result = (Map) satHandler.execute("authentication.login", params);
         print "Returned from auth check : %s" % retval
         
-        auth_map = satClient.authentication.login(self.systemid)
+        #auth_map = satClient.authentication.login(self.systemid)
         # print "KEY: %s " % key
 
-        rhn = RHNTransport()
-        um = xmlrpclib.Unmarshaller()
-        sparser = xmlrpclib.SlowParser(um)
-        dumpClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT-DUMP/", verbose=0, transport=rhn)
+        trans = RHNTransport()
+        trans.addProperty("X-RHN-Satellite-XML-Dump-Version", "3.3")
+        #um = xmlrpclib.Unmarshaller()
+        #sparser = xmlrpclib.SlowParser(um)
+        dumpClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT-DUMP/", verbose=1, transport=trans)
         print "*** calling product_names ***"
         chan_fam_xml = dumpClient.dump.product_names(self.systemid)
-        # print str(chan_fam_xml)
-        packages = self.getChannelPackages(dumpClient, self.systemid, "rhel-i386-server-vt-5")
+        print str(chan_fam_xml)
+        channelName = "rhel-i386-server-vt-5"
+        packages = self.getChannelPackages(dumpClient, self.systemid, channelName)
         #print "Available packages = ", packages
         pkgInfo = self.getShortPackageInfo(dumpClient, self.systemid, packages)
-        print "PackageInfo = ", pkgInfo
+        #print "PackageInfo = ", pkgInfo
+        fetched, errors = self.fetchRPMs(self.systemid, SATELLITE_URL, channelName, pkgInfo)
 
+    def login(self, baseURL, systemId):
+        client = xmlrpclib.Server(baseURL+"/SAT", verbose=0)
+        authMap = client.authentication.login(systemId)
+        return authMap
 
     def getChannelFamilies(self, client, systemId):
         return client.dump.channel_families(systemId)
@@ -203,7 +209,7 @@ class Grinder():
         epoch = info["epoch"]
         if epoch:
             nevra += "-" + epoch + ":"
-        nevra += info["version"] + "-" + info["release"]
+        nevra += "-" + info["version"] + "-" + info["release"]
         arch = info["arch"]
         if arch:
             nevra += "." + arch
@@ -227,11 +233,66 @@ class Grinder():
         info["id"] = pkgShort.getAttribute("id")
         info["fetch_name"] = self.formFetchName(info)
         nevra = self.formNEVRA(info)
+        info["nevra"] = nevra
         return nevra, info
 
+    def getFetchURL(self, channelName, fetchName):
+        return "/SAT/$RHN/" + channelName + "/getPackage/" + fetchName;
 
+    def _storeRPM(self, rpmName, response, verbose=False, dirPath="./packages"):
+        if not os.path.isdir(dirPath):
+            print "Creating directory: ", dirPath
+            os.mkdir(dirPath)
 
-    
+        toRead = 64 * 1024
+        bytesRead = 0
+        md5Hash = hashlib.md5()
+        file = open(os.path.join(dirPath, rpmName), "wb")
+        while 1:
+            startTime = time.time()
+            data = response.read(toRead)
+            endTime = time.time()
+            if not data:
+                break
+            file.write(data)
+            md5Hash.update(data)
+            bytesRead += len(data)
+            if verbose:
+                print "%s Estimated bandwidth: %s KB/sec" % (rpmName, len(data)/((endTime-startTime)*1000))
+        file.close()
+        return bytesRead, md5Hash.hexdigest()
+
+    def fetchRPMs(self, systemId, baseURL, channelName, pkgInfo):
+        """
+        Will return a tuple (fetched, errors)
+         fetched is a list of fetched packages
+         errors is a list of packages which had errors while being fetched
+        """
+        fetched = []
+        errors = []
+        authMap = self.login(baseURL, systemId)
+        r = urlparse.urlsplit(baseURL)
+        netloc = r.netloc
+        conn = httplib.HTTPConnection(netloc)
+        for nevra in pkgInfo:
+            pkg = pkgInfo[nevra]
+            fetchName = pkg["fetch_name"]
+            fetchURL = self.getFetchURL(channelName, fetchName)
+            print "Will fetch RPM for %s, from: %s" % (nevra, fetchURL)
+            conn.request("GET", fetchURL, headers=authMap)
+            resp = conn.getresponse()
+            size, md5sum = self._storeRPM(nevra, resp)
+            if size != int(pkg["package_size"]):
+                print "Size mismatch, read: %s bytes, was expecting %s bytes" % (size, pkg["package_size"])
+                errors.append(pkg)
+                #TODO: delete bad rpm
+            elif md5sum != pkg["md5sum"]:
+                print "md5sum mismatch, read md5sum of: %s expected md5sum of %s" %(md5sum, pkg["md5sum"])
+                errors.append(pkg)
+                #TODO: delete bad rpm
+            else:
+                fetched.append(pkg)
+        return fetched, errors
 
 if __name__ != '__main__':
     raise ImportError, "module cannot be imported"
