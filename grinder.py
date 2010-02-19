@@ -24,7 +24,7 @@ def processCommandline():
         Option('-u', '--username',            action='store',
             help=' RHN User Account'),
         Option('-p', '--password',        action='store',
-            help='RHQ Passowrd'),
+            help='RHN Passowrd'),
         Option('-v', '--verbose',         action='store_true',
             help='verbose output'),
     ]
@@ -38,11 +38,12 @@ class RhnTransport(xmlrpclib.SafeTransport):
     __cert_file = '/usr/share/rhn/RHNS-CA-CERT'
     __key_file  = '/etc/webapp-keyring.gpg'
     
-    def make_connection(self,host):
-        host_with_cert = (host, 
-                      { 'key_file'  :  self.__key_file,
-                      'cert_file' :  self.__cert_file })
-        return xmlrpclib.SafeTransport.make_connection(self,host_with_cert)     
+#    def make_connection(self,host):
+#        cert_string = open('/usr/share/rhn/RHNS-CA-CERT', 'r').read()
+#        host_with_cert = (host, 
+#                      { 'key_file'  :  self.__key_file,
+#                      'cert_file' :  self.__cert_file })
+#        return xmlrpclib.SafeTransport.make_connection(self,host_with_cert)     
         
     def send_host(self, connection, host):
         print "Adding extra header"
@@ -70,14 +71,18 @@ class ContentSyncer ():
 
     def sync(self):
         print "Sync!!"
-        SATELLITE_URL = "http://satellite.rhn.redhat.com/SAT-DUMP"
+        SATELLITE_URL = "http://satellite.rhn.redhat.com/"
         rhn = RhnTransport()    
         
-        client = xmlrpclib.ServerProxy(SATELLITE_URL, verbose=0, transport=rhn)
+        satClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT", verbose=0, transport=rhn)
+        dumpClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT-DUMP", verbose=0, transport=rhn)
+        
+        retval = satClient.authentication.check(self.systemid)
+        print "Returned from auth check : %s" % retval
         chans = ['rhel-i386-server-vt-5']
-        client.dump.channel_families(self.systemid)
-        #for channel in channels:
-        #    print channel
+        chan_fams = dumpClient.dump.channel_families(self.systemid)
+        for fam in chan_fams:
+            print fam
         # result = (JAXBElement) dumpHandler.execute("dump.channels", params);
     
     
@@ -107,15 +112,6 @@ _LIBPATH = "/usr/share/"
 if _LIBPATH not in sys.path:
     sys.path.append(_LIBPATH)
 
-#try:
-    ## NOTE: importing
-    #from rhqclient import RhqCli
-#except KeyboardInterrupt:
-    #systemExit(0, "\nUser interrupted process.")
-#except ImportError, e:
-    #systemExit(2, "Unable to find Rhq client module.\n"
-                  #"Error: %s" % e)
-
 def main():
     # execute
     try:
@@ -124,7 +120,7 @@ def main():
         username = OPTIONS.username
         password = OPTIONS.password
         cs = ContentSyncer(username, password)
-        cs.activate()
+        # cs.activate()
         cs.sync()
         
     except KeyboardInterrupt:
