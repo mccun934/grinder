@@ -37,18 +37,24 @@ def processCommandline():
 
 class RhnTransport(xmlrpclib.SafeTransport):
     __cert_file = '/usr/share/rhn/RHNS-CA-CERT'
-    __key_file  = '/etc/webapp-keyring.gpg'
-    
-#    def make_connection(self,host):
-#        cert_string = open('/usr/share/rhn/RHNS-CA-CERT', 'r').read()
-#        host_with_cert = (host, 
-#                      { 'key_file'  :  self.__key_file,
-#                      'cert_file' :  self.__cert_file })
-#        return xmlrpclib.SafeTransport.make_connection(self,host_with_cert)     
+    def __init__(self, auth_dict):
+        self.auth_dict = auth_dict
         
+
+#    def make_connection(self,host):
+#        # cert_string = open('/usr/share/rhn/RHNS-CA-CERT', 'r').read()
+#        
+#        host_with_cert = (host, { 'cert_file' :  self.__cert_file })
+#        return xmlrpclib.SafeTransport.make_connection(self, host_with_cert)     
+       
     def send_host(self, connection, host):
         print "Adding extra header"
         connection.putheader("X-RHN-Satellite-XML-Dump-Version", "3.3")
+        print "Adding passed in header vals"
+        for key, value in self.auth_dict.iteritems():
+            print key, value
+            connection.putheader(key, value)
+
         xmlrpclib.SafeTransport.send_host(self, connection, host)
 
 
@@ -73,17 +79,23 @@ class Grinder():
     def sync(self):
         print "Sync!!"
         SATELLITE_URL = "http://satellite.rhn.redhat.com/"
-        rhn = RhnTransport()    
+        rhn = RhnTransport(dict())    
         
         satClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT", verbose=0, transport=rhn)
-        dumpClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT-DUMP", verbose=0, transport=rhn)
+        
         
         print "set trace"
         # pdb.set_trace()
         
         retval = satClient.authentication.check(self.systemid)
+        # result = (Map) satHandler.execute("authentication.login", params);
         print "Returned from auth check : %s" % retval
         
+        auth_map = satClient.authentication.login(self.systemid)
+        # print "KEY: %s " % key
+
+        rhn = RhnTransport(auth_map)
+        dumpClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT-DUMP", verbose=0, transport=rhn)
         chan_fams = dumpClient.dump.product_names(self.systemid)
         for fam in chan_fams:
             print fam
