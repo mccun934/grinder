@@ -5,7 +5,8 @@ import xml.dom.minidom
 
 class TransportWithHeaders(xmlrpclib.Transport):
     def __init__(self):
-        xmlrpclib.Transport.__init__(self)
+        if hasattr(xmlrpclib.Transport, '__init__'):
+            xmlrpclib.Transport.__init__(self)
         self.props = {}
 
     def addProperty(self, key, value):
@@ -23,7 +24,7 @@ class TransportWithHeaders(xmlrpclib.Transport):
 #2) Data comes back gzipped, need to read it (seems like latest python in svn has support, yet python 2.6 doesn't)
 #3) xml message doesn't conform to xmlrpc standard
 #
-class GzipDecodedString(gzip.GzipFile if gzip else object):
+class GzipDecodedString(gzip.GzipFile):
     """a file-like object to decode a response encoded with the gzip
     method, as described in RFC 1952.
     """

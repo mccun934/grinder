@@ -17,11 +17,14 @@
 #
 import pdb
 import xmlrpclib
-import hashlib 
 import httplib
 import urlparse
 import time
 import commands
+try:
+    import hashlib as md5
+except:
+    import md5
 
 from optparse import Option, OptionParser
 
@@ -42,7 +45,7 @@ def processCommandline():
     global OPTIONS, files
     OPTIONS, files = optionParser.parse_args()
 
-class Grinder():
+class Grinder:
     def __init__(self, username, password, cert, systemid):
         self.cert = open(cert, 'r').read()
         self.systemid = open(systemid, 'r').read()
@@ -86,6 +89,7 @@ class Grinder():
         chan_fam_xml = dumpClient.dump.product_names(self.systemid)
         print str(chan_fam_xml)
         channelName = "rhel-i386-server-vt-5"
+        #channelName = "rhel-i386-server-5"
         packages = self.getChannelPackages(dumpClient, self.systemid, channelName)
         #print "Available packages = ", packages
         pkgInfo = self.getShortPackageInfo(dumpClient, self.systemid, packages)
@@ -162,7 +166,7 @@ class Grinder():
 
         toRead = 64 * 1024
         bytesRead = 0
-        md5Hash = hashlib.md5()
+        md5Hash = md5.md5()
         file = open(os.path.join(dirPath, rpmName), "wb")
         while 1:
             startTime = time.time()
@@ -188,7 +192,10 @@ class Grinder():
         errors = []
         authMap = self.login(baseURL, systemId)
         r = urlparse.urlsplit(baseURL)
-        netloc = r.netloc
+        if hasattr(r, 'netloc'):
+            netloc = r.netloc
+        else:
+            netloc = r[1]
         conn = httplib.HTTPConnection(netloc)
         for nevra in pkgInfo:
             pkg = pkgInfo[nevra]
@@ -213,7 +220,7 @@ class Grinder():
     def createRepo(dir):
         status, out = commands.getstatusoutput('createrepo %s' % dir)
 
-        class CreateRepoError():
+        class CreateRepoError:
             def __init__(self, output):
                 self.output = output
 
