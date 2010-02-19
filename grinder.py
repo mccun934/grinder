@@ -17,6 +17,7 @@
 #
 import xmlrpclib
 from optparse import Option, OptionParser
+import pdb
 
 def processCommandline():
     "process the commandline, setting the OPTIONS object"
@@ -51,7 +52,7 @@ class RhnTransport(xmlrpclib.SafeTransport):
         xmlrpclib.SafeTransport.send_host(self, connection, host)
 
 
-class ContentSyncer ():
+class Grinder():
     def __init__(self, username, password):
         self.cert = open('/etc/sysconfig/rhn/entitlement-cert.xml', 'r').read()
         self.systemid = open('/etc/sysconfig/rhn/systemid', 'r').read()
@@ -77,13 +78,17 @@ class ContentSyncer ():
         satClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT", verbose=0, transport=rhn)
         dumpClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT-DUMP", verbose=0, transport=rhn)
         
+        print "set trace"
+        # pdb.set_trace()
+        
         retval = satClient.authentication.check(self.systemid)
         print "Returned from auth check : %s" % retval
-        chans = ['rhel-i386-server-vt-5']
-        chan_fams = dumpClient.dump.channel_families(self.systemid)
+        
+        chan_fams = dumpClient.dump.product_names(self.systemid)
         for fam in chan_fams:
             print fam
-        # result = (JAXBElement) dumpHandler.execute("dump.channels", params);
+        chans = ['rhel-i386-server-vt-5']
+        chans_out = dumpClient.dump.channels(self.systemid)
     
     
 
@@ -119,7 +124,7 @@ def main():
         processCommandline()
         username = OPTIONS.username
         password = OPTIONS.password
-        cs = ContentSyncer(username, password)
+        cs = Grinder(username, password)
         # cs.activate()
         cs.sync()
         
