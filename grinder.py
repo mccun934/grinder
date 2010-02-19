@@ -35,11 +35,11 @@ def processCommandline():
 
 
 
-class RhnTransport(xmlrpclib.SafeTransport):
+class RhnTransport(xmlrpclib.Transport):
     __cert_file = '/usr/share/rhn/RHNS-CA-CERT'
     def __init__(self, auth_dict):
+        xmlrpclib.Transport.__init__(self)
         self.auth_dict = auth_dict
-        
 
 #    def make_connection(self,host):
 #        # cert_string = open('/usr/share/rhn/RHNS-CA-CERT', 'r').read()
@@ -48,14 +48,14 @@ class RhnTransport(xmlrpclib.SafeTransport):
 #        return xmlrpclib.SafeTransport.make_connection(self, host_with_cert)     
        
     def send_host(self, connection, host):
-        print "Adding extra header"
+        # print "Adding extra header"
         connection.putheader("X-RHN-Satellite-XML-Dump-Version", "3.3")
-        print "Adding passed in header vals"
+        # print "Adding passed in header vals"
         for key, value in self.auth_dict.iteritems():
-            print key, value
-            connection.putheader(key, value)
+            # print key, value
+            connection.putheader(key, str(value))
 
-        xmlrpclib.SafeTransport.send_host(self, connection, host)
+        xmlrpclib.Transport.send_host(self, connection, host)
 
 
 class Grinder():
@@ -81,8 +81,7 @@ class Grinder():
         SATELLITE_URL = "http://satellite.rhn.redhat.com/"
         rhn = RhnTransport(dict())    
         
-        satClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT", verbose=0, transport=rhn)
-        
+        satClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT", verbose=1, transport=rhn)
         
         print "set trace"
         # pdb.set_trace()
@@ -95,7 +94,8 @@ class Grinder():
         # print "KEY: %s " % key
 
         rhn = RhnTransport(auth_map)
-        dumpClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT-DUMP", verbose=0, transport=rhn)
+        dumpClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT-DUMP/", verbose=9, transport=rhn)
+        print "*** calling product_names ***"
         chan_fams = dumpClient.dump.product_names(self.systemid)
         for fam in chan_fams:
             print fam
