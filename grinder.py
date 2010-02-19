@@ -209,6 +209,21 @@ class Grinder():
                 fetched.append(pkg)
         return fetched, errors
 
+    def createRepo(dir):
+        status, out = commands.getstatusoutput('createrepo %s' % dir)
+
+        class CreateRepoError():
+            def __init__(self, output):
+                self.output = output
+
+            def __str__(self):
+                return self.output
+
+        if status != 0:
+            raise CreateRepoError(out)
+
+        return status, out
+
 if __name__ != '__main__':
     raise ImportError, "module cannot be imported"
 
