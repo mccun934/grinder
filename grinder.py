@@ -21,6 +21,7 @@ import hashlib
 import httplib
 import urlparse
 import time
+import commands
 
 from optparse import Option, OptionParser
 
