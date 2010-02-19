@@ -16,6 +16,23 @@
 # in this software or its documentation.
 #
 import xmlrpclib
+from optparse import Option, OptionParser
+
+def processCommandline():
+    "process the commandline, setting the OPTIONS object"
+    optionsTable = [
+        Option('-u', '--username',            action='store',
+            help=' RHN User Account'),
+        Option('-p', '--password',        action='store',
+            help='RHQ Passowrd'),
+        Option('-v', '--verbose',         action='store_true',
+            help='verbose output'),
+    ]
+    optionParser = OptionParser(option_list=optionsTable, usage="%prog [OPTION] [<package>]")
+    global OPTIONS, files
+    OPTIONS, files = optionParser.parse_args()
+
+
 
 class RhnTransport(xmlrpclib.SafeTransport):
     __cert_file = '/usr/share/rhn/RHNS-CA-CERT'
@@ -34,18 +51,18 @@ class RhnTransport(xmlrpclib.SafeTransport):
 
 
 class ContentSyncer ():
-    def __init__(self):
+    def __init__(self, username, password):
         self.cert = open('/etc/sysconfig/rhn/entitlement-cert.xml', 'r').read()
         self.systemid = open('/etc/sysconfig/rhn/systemid', 'r').read()
+        self.username = username
+        self.password = password
 
     
     def activate(self):
         SATELLITE_URL = "https://satellite.rhn.redhat.com/rpc/api"
-        SATELLITE_LOGIN = "login"
-        SATELLITE_PASSWORD = "password"
 
         client = xmlrpclib.Server(SATELLITE_URL, verbose=0)
-        key = client.auth.login(SATELLITE_LOGIN, SATELLITE_PASSWORD)
+        key = client.auth.login(self.username, self.password)
         retval = client.satellite.activateSatellite(self.systemid, self.cert)
         print "retval from activation: %s"  % retval
         client.auth.logout(key)        
@@ -54,7 +71,7 @@ class ContentSyncer ():
     def sync(self):
         print "Sync!!"
         SATELLITE_URL = "http://satellite.rhn.redhat.com/SAT-DUMP"
-        rhn = RhnTransport()
+        rhn = RhnTransport()    
         
         client = xmlrpclib.ServerProxy(SATELLITE_URL, verbose=0, transport=rhn)
         chans = ['rhel-i386-server-vt-5']
@@ -103,8 +120,11 @@ def main():
     # execute
     try:
         print "Main executed"
-        cs = ContentSyncer()
-        # cs.activate()
+        processCommandline()
+        username = OPTIONS.username
+        password = OPTIONS.password
+        cs = ContentSyncer(username, password)
+        cs.activate()
         cs.sync()
         
     except KeyboardInterrupt:
