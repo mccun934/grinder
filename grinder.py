@@ -30,12 +30,13 @@ from optparse import Option, OptionParser
 def processCommandline():
     "process the commandline, setting the OPTIONS object"
     optionsTable = [
-        Option('-u', '--username',            action='store',
-            help=' RHN User Account'),
-        Option('-p', '--password',        action='store',
-            help='RHN Passowrd'),
-        Option('-v', '--verbose',         action='store_true',
-            help='verbose output'),
+        Option('-u', '--username', action='store', help='RHN User Account'),
+        Option('-p', '--password', action='store', help='RHN Passowrd'),
+        Option('-c', '--cert', action='store', help='Entitlement Certificate',
+            default='/etc/sysconfig/rhn/entitlement-cert.xml'),
+        Option('-s', '--systemid', action='store', help='System ID',
+            default='/etc/sysconfig/rhn/systemid'),
+        Option('-v', '--verbose',  action='store_true', help='verbose output'),
     ]
     optionParser = OptionParser(option_list=optionsTable, usage="%prog [OPTION] [<package>]")
     global OPTIONS, files
@@ -127,9 +128,9 @@ class RHNTransport(TransportWithHeaders):
 
 
 class Grinder():
-    def __init__(self, username, password):
-        self.cert = open('/etc/sysconfig/rhn/entitlement-cert.xml', 'r').read()
-        self.systemid = open('/etc/sysconfig/rhn/systemid', 'r').read()
+    def __init__(self, username, password, cert, systemid):
+        self.cert = open(cert, 'r').read()
+        self.systemid = open(systemid, 'r').read()
         self.username = username
         self.password = password
 
@@ -326,7 +327,9 @@ def main():
         processCommandline()
         username = OPTIONS.username
         password = OPTIONS.password
-        cs = Grinder(username, password)
+        cert = OPTIONS.cert
+        systemid = OPTIONS.systemid
+        cs = Grinder(username, password, cert, systemid)
         # cs.activate()
         cs.sync()
         
