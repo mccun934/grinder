@@ -81,7 +81,7 @@ class Grinder:
         # print "KEY: %s " % key
 
         trans = RHNTransport()
-        trans.addProperty("X-RHN-Satellite-XML-Dump-Version", "3.3")
+        trans.addProperty("X-RHN-Satellite-XML-Dump-Version", "3.4")
         #um = xmlrpclib.Unmarshaller()
         #sparser = xmlrpclib.SlowParser(um)
         dumpClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT-DUMP/", verbose=1, transport=trans)
@@ -191,17 +191,18 @@ class Grinder:
         fetched = []
         errors = []
         authMap = self.login(baseURL, systemId)
+        authMap["X-RHN-Satellite-XML-Dump-Version"] = "3.4"
         r = urlparse.urlsplit(baseURL)
         if hasattr(r, 'netloc'):
             netloc = r.netloc
         else:
             netloc = r[1]
         conn = httplib.HTTPConnection(netloc)
-        for nevra in pkgInfo:
+        for index, nevra in enumerate(pkgInfo):
             pkg = pkgInfo[nevra]
             fetchName = pkg["fetch_name"]
             fetchURL = self.getFetchURL(channelName, fetchName)
-            print "Will fetch RPM for %s, from: %s" % (nevra, fetchURL)
+            print "[%s/%s] Will fetch RPM for %s, from: %s" % (index, len(pkgInfo), nevra, fetchURL)
             conn.request("GET", fetchURL, headers=authMap)
             resp = conn.getresponse()
             size, md5sum = self._storeRPM(nevra, resp)
