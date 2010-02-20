@@ -99,6 +99,7 @@ class Grinder:
     def login(self, baseURL, systemId):
         client = xmlrpclib.Server(baseURL+"/SAT", verbose=0)
         authMap = client.authentication.login(systemId)
+        authMap["X-RHN-Satellite-XML-Dump-Version"] = "3.4"
         return authMap
 
     def getChannelFamilies(self, client, systemId):
@@ -191,7 +192,6 @@ class Grinder:
         fetched = []
         errors = []
         authMap = self.login(baseURL, systemId)
-        authMap["X-RHN-Satellite-XML-Dump-Version"] = "3.4"
         r = urlparse.urlsplit(baseURL)
         if hasattr(r, 'netloc'):
             netloc = r.netloc
@@ -203,9 +203,21 @@ class Grinder:
             fetchName = pkg["fetch_name"]
             fetchURL = self.getFetchURL(channelName, fetchName)
             print "[%s/%s] Will fetch RPM for %s, from: %s" % (index, len(pkgInfo), nevra, fetchURL)
+            authMap["X-RHN-Auth"] = 435400
             conn.request("GET", fetchURL, headers=authMap)
             resp = conn.getresponse()
+            if resp.status == 401:
+                print "Got a response of %s:%s, Will refresh authentication credentials and retry" \
+                        % (resp.status, resp.reason)
+                authMap = self.login(baseURL, systemId)
+                conn.request("GET", fetchURL, headers=authMap)
+                resp = conn.getresponse()
+            if resp.status != 200:
+                print "ERROR: fetching %s.  Our Authentication Info is : %s" % (fetchURL, authMap)
+                errors.add(pkg)
+                continue
             size, md5sum = self._storeRPM(nevra, resp)
+            conn.close()
             if size != int(pkg["package_size"]):
                 print "Size mismatch, read: %s bytes, was expecting %s bytes" % (size, pkg["package_size"])
                 errors.append(pkg)
