@@ -88,8 +88,8 @@ class Grinder:
         print "*** calling product_names ***"
         chan_fam_xml = dumpClient.dump.product_names(self.systemid)
         print str(chan_fam_xml)
-        channelName = "rhel-i386-server-vt-5"
-        #channelName = "rhel-i386-server-5"
+        #channelName = "rhel-i386-server-vt-5"
+        channelName = "rhel-i386-server-5"
         packages = self.getChannelPackages(dumpClient, self.systemid, channelName)
         #print "Available packages = ", packages
         pkgInfo = self.getShortPackageInfo(dumpClient, self.systemid, packages)
@@ -203,7 +203,6 @@ class Grinder:
             fetchName = pkg["fetch_name"]
             fetchURL = self.getFetchURL(channelName, fetchName)
             print "[%s/%s] Will fetch RPM for %s, from: %s" % (index, len(pkgInfo), nevra, fetchURL)
-            authMap["X-RHN-Auth"] = 435400
             conn.request("GET", fetchURL, headers=authMap)
             resp = conn.getresponse()
             if resp.status == 401:
