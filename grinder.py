@@ -42,7 +42,8 @@ def processCommandline():
         Option('-s', '--systemid', action='store', help='System ID',
             default='/etc/sysconfig/rhn/systemid'),
         Option('-P', '--parallel', action='store', help='Number of threads to fetch in parallel'),
-        Option('-v', '--verbose',  action='store_true', help='verbose output'),
+        Option('-l', '--label', action='store', help='Channel Label ex: rhel-i386-server-vt', default=""),
+        Option('-v', '--verbose',  action='store_true', help='verbose output', default=False),
     ]
     optionParser = OptionParser(option_list=optionsTable, usage="%prog [OPTION] [<package>]")
     global OPTIONS, files
@@ -66,12 +67,15 @@ class Grinder:
         client.auth.logout(key)        
         print "Activated!"
 
-    def sync(self):
+    def sync(self, channelName, verbose=0):
+        if channelName == "":
+            print "No channel name specified to sync."
+            return None
         print "Sync!!"
         SATELLITE_URL = "http://satellite.rhn.redhat.com/"
         rhn = RHNTransport()    
         
-        satClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT", verbose=0, transport=rhn)
+        satClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT", verbose=verbose, transport=rhn)
         
         # print "set trace"
         # pdb.set_trace()
@@ -87,12 +91,10 @@ class Grinder:
         trans.addProperty("X-RHN-Satellite-XML-Dump-Version", "3.4")
         #um = xmlrpclib.Unmarshaller()
         #sparser = xmlrpclib.SlowParser(um)
-        dumpClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT-DUMP/", verbose=1, transport=trans)
+        dumpClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT-DUMP/", verbose=verbose, transport=trans)
         print "*** calling product_names ***"
         chan_fam_xml = dumpClient.dump.product_names(self.systemid)
         print str(chan_fam_xml)
-        channelName = "rhel-i386-server-vt-5"
-        #channelName = "rhel-i386-server-5"
         packages = self.getChannelPackages(dumpClient, self.systemid, channelName)
         #print "Available packages = ", packages
         pkgInfo = self.getShortPackageInfo(dumpClient, self.systemid, packages)
@@ -225,9 +227,11 @@ def main():
         cert = OPTIONS.cert
         systemid = OPTIONS.systemid
         parallel = OPTIONS.parallel
+        label = OPTIONS.label
+        verbose = OPTIONS.verbose
         cs = Grinder(username, password, cert, systemid, parallel)
         # cs.activate()
-        cs.sync()
+        cs.sync(label, verbose)
         
     except KeyboardInterrupt:
         systemExit(0, "\nUser interrupted process.")
