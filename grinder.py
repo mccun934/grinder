@@ -29,6 +29,8 @@ except:
 from optparse import Option, OptionParser
 
 from rhn_transport import RHNTransport
+from ParallelFetch import ParallelFetch
+from PackageFetch import PackageFetch
 
 def processCommandline():
     "process the commandline, setting the OPTIONS object"
@@ -39,6 +41,7 @@ def processCommandline():
             default='/etc/sysconfig/rhn/entitlement-cert.xml'),
         Option('-s', '--systemid', action='store', help='System ID',
             default='/etc/sysconfig/rhn/systemid'),
+        Option('-P', '--parallel', action='store', help='Number of threads to fetch in parallel'),
         Option('-v', '--verbose',  action='store_true', help='verbose output'),
     ]
     optionParser = OptionParser(option_list=optionsTable, usage="%prog [OPTION] [<package>]")
@@ -46,12 +49,12 @@ def processCommandline():
     OPTIONS, files = optionParser.parse_args()
 
 class Grinder:
-    def __init__(self, username, password, cert, systemid):
+    def __init__(self, username, password, cert, systemid, parallel):
         self.cert = open(cert, 'r').read()
         self.systemid = open(systemid, 'r').read()
         self.username = username
         self.password = password
-
+        self.parallel = parallel
     
     def activate(self):
         SATELLITE_URL = "https://satellite.rhn.redhat.com/rpc/api"
@@ -88,19 +91,32 @@ class Grinder:
         print "*** calling product_names ***"
         chan_fam_xml = dumpClient.dump.product_names(self.systemid)
         print str(chan_fam_xml)
-        #channelName = "rhel-i386-server-vt-5"
-        channelName = "rhel-i386-server-5"
+        channelName = "rhel-i386-server-vt-5"
+        #channelName = "rhel-i386-server-5"
         packages = self.getChannelPackages(dumpClient, self.systemid, channelName)
         #print "Available packages = ", packages
         pkgInfo = self.getShortPackageInfo(dumpClient, self.systemid, packages)
         #print "PackageInfo = ", pkgInfo
-        fetched, errors = self.fetchRPMs(self.systemid, SATELLITE_URL, channelName, pkgInfo)
 
-    def login(self, baseURL, systemId):
-        client = xmlrpclib.Server(baseURL+"/SAT", verbose=0)
-        authMap = client.authentication.login(systemId)
-        authMap["X-RHN-Satellite-XML-Dump-Version"] = "3.4"
-        return authMap
+        fetched = []
+        errors = []
+        if self.parallel:
+            #
+            # Trying new parallel approach
+            #
+            pf = ParallelFetch(self.systemid, SATELLITE_URL, channelName, numThreads=int(self.parallel))
+            pf.addPkgList(pkgInfo.values())
+            pf.start()
+            fetched, errors = pf.waitForFinish()
+        else:
+            pf = PackageFetch(self.systemid, SATELLITE_URL, channelName)
+            for index, pkg in enumerate(pkgInfo.values()):
+                print "%s packages left to fetch" % (len(pkgInfo.values()) - index)
+                if pf.fetchRPM(pkg):
+                    fetched.append(pkg)
+                else:
+                    errors.append(pkg)
+        return fetched, errors
 
     def getChannelFamilies(self, client, systemId):
         return client.dump.channel_families(systemId)
@@ -157,77 +173,7 @@ class Grinder:
         info["nevra"] = nevra
         return nevra, info
 
-    def getFetchURL(self, channelName, fetchName):
-        return "/SAT/$RHN/" + channelName + "/getPackage/" + fetchName;
 
-    def _storeRPM(self, rpmName, response, verbose=False, dirPath="./packages"):
-        if not os.path.isdir(dirPath):
-            print "Creating directory: ", dirPath
-            os.mkdir(dirPath)
-
-        toRead = 64 * 1024
-        bytesRead = 0
-        md5Hash = md5.md5()
-        file = open(os.path.join(dirPath, rpmName), "wb")
-        while 1:
-            startTime = time.time()
-            data = response.read(toRead)
-            endTime = time.time()
-            if not data:
-                break
-            file.write(data)
-            md5Hash.update(data)
-            bytesRead += len(data)
-            if verbose:
-                print "%s Estimated bandwidth: %s KB/sec" % (rpmName, len(data)/((endTime-startTime)*1000))
-        file.close()
-        return bytesRead, md5Hash.hexdigest()
-
-    def fetchRPMs(self, systemId, baseURL, channelName, pkgInfo):
-        """
-        Will return a tuple (fetched, errors)
-         fetched is a list of fetched packages
-         errors is a list of packages which had errors while being fetched
-        """
-        fetched = []
-        errors = []
-        authMap = self.login(baseURL, systemId)
-        r = urlparse.urlsplit(baseURL)
-        if hasattr(r, 'netloc'):
-            netloc = r.netloc
-        else:
-            netloc = r[1]
-        conn = httplib.HTTPConnection(netloc)
-        for index, nevra in enumerate(pkgInfo):
-            pkg = pkgInfo[nevra]
-            fetchName = pkg["fetch_name"]
-            fetchURL = self.getFetchURL(channelName, fetchName)
-            print "[%s/%s] Will fetch RPM for %s, from: %s" % (index, len(pkgInfo), nevra, fetchURL)
-            conn.request("GET", fetchURL, headers=authMap)
-            resp = conn.getresponse()
-            if resp.status == 401:
-                print "Got a response of %s:%s, Will refresh authentication credentials and retry" \
-                        % (resp.status, resp.reason)
-                authMap = self.login(baseURL, systemId)
-                conn.request("GET", fetchURL, headers=authMap)
-                resp = conn.getresponse()
-            if resp.status != 200:
-                print "ERROR: fetching %s.  Our Authentication Info is : %s" % (fetchURL, authMap)
-                errors.add(pkg)
-                continue
-            size, md5sum = self._storeRPM(nevra, resp)
-            conn.close()
-            if size != int(pkg["package_size"]):
-                print "Size mismatch, read: %s bytes, was expecting %s bytes" % (size, pkg["package_size"])
-                errors.append(pkg)
-                #TODO: delete bad rpm
-            elif md5sum != pkg["md5sum"]:
-                print "md5sum mismatch, read md5sum of: %s expected md5sum of %s" %(md5sum, pkg["md5sum"])
-                errors.append(pkg)
-                #TODO: delete bad rpm
-            else:
-                fetched.append(pkg)
-        return fetched, errors
 
     def createRepo(dir):
         status, out = commands.getstatusoutput('createrepo %s' % dir)
@@ -278,7 +224,8 @@ def main():
         password = OPTIONS.password
         cert = OPTIONS.cert
         systemid = OPTIONS.systemid
-        cs = Grinder(username, password, cert, systemid)
+        parallel = OPTIONS.parallel
+        cs = Grinder(username, password, cert, systemid, parallel)
         # cs.activate()
         cs.sync()
         
