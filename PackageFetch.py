@@ -54,11 +54,27 @@ class PackageFetch(object):
             return self.authMap
         client = xmlrpclib.Server(self.baseURL+"/SAT", verbose=0)
         self.authMap = client.authentication.login(self.systemId)
-        self.authMap["X-RHN-Satellite-XML-Dump-Version"] = "3.4"
+        self.authMap["X-RHN-Satellite-XML-Dump-Version"] = "3.5"
         return self.authMap
 
     def getFetchURL(self, channelName, fetchName):
         return "/SAT/$RHN/" + channelName + "/getPackage/" + fetchName;
+
+
+    def verifyFile(self, filePath, size, md5sum):
+        statinfo = os.stat(filePath)
+        if statinfo.st_size == size:
+            md5Hash = md5.md5()
+            file  = open(filePath, "rb")
+            while 1:
+                data = file.read(64*1024)
+                if not data:
+                    break
+                md5Hash.update(data)
+            file.close()
+            if md5Hash.hexdigest() == md5sum:
+                return True
+        return False
 
     def storeRPM(self, rpmName, response, size, md5sum, dirPath="./packages", verbose=False):
         """
@@ -69,6 +85,9 @@ class PackageFetch(object):
             print "Creating directory: ", dirPath
             os.mkdir(dirPath)
         filePath = os.path.join(dirPath, rpmName)
+        if os.path.exists(filePath) and self.verifyFile(filePath, size, md5sum):
+            print "%s exists with correct size and md5sum, no need to fetch." % (filePath)
+            return True
 
         toRead = 64 * 1024
         bytesRead = 0
@@ -100,7 +119,7 @@ class PackageFetch(object):
             return False
         return True
 
-    def fetchRPM(self, pkg):
+    def fetchRPM(self, pkg, dirPath=None):
         """
         Input:
             pkg = dict containing 'fetch_name', 'package_size', 'md5'
@@ -133,9 +152,12 @@ class PackageFetch(object):
             conn.close()
             return False
 
-        size = pkg['package_size']
+        size = int(pkg['package_size'])
         md5sum = pkg['md5sum']
-        status = self.storeRPM(nevra, resp, size, md5sum, dirPath=self.channelName)
+        d = dirPath
+        if d == None:
+            d = self.channelName
+        status = self.storeRPM(nevra, resp, size, md5sum, dirPath=d)
         conn.close()
         return status
 
@@ -149,7 +171,7 @@ if __name__ == "__main__":
     pkg['fetch_name'] = "Virtualization-es-ES-5.2-9:.noarch.rpm"
     pkg['package_size'] = "1731195"
     pkg['md5sum'] = "91b0f20aeeda88ddae4959797003a173" 
-    if pf.fetchRPM(pkg):
+    if pf.fetchRPM(pkg, dirPath="./test123"):
         print "Package fetch was successful"
     else:
         print "Error with package fetch"
