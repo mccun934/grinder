@@ -200,16 +200,18 @@ class Grinder:
                 packages[nevra] = info
         return packages
 
-    def isPkgShortNewer(self, newPkg, oldPkg):
+    def isPkgShortNewer(self, pkgOne, pkgTwo):
         # Only check for packages of same arch
-        if newPkg["arch"] != oldPkg["arch"]:
+        if pkgOne["arch"] != pkgTwo["arch"]:
             return False
-        if newPkg["epoch"] > oldPkg["epoch"]:
+        if pkgOne["epoch"] < pkgTwo["epoch"]:
+            return False
+        if pkgOne["epoch"] > pkgTwo["epoch"]:
             return True
-        if newPkg["version"] > oldPkg["version"]:
+        if pkgOne["version"] > pkgTwo["version"]:
             return True
-        if newPkg["version"] == oldPkg["version"]:
-            if newPkg["release"] > oldPkg["release"]:
+        if pkgOne["version"] == pkgTwo["version"]:
+            if pkgOne["release"] > pkgTwo["release"]:
                 return True
         return False
 
@@ -302,5 +304,5 @@ if __name__ == '__main__':
     setupLogging(verbose)
     GRINDER = Grinder(username, password, cert, systemid, parallel)
     GRINDER.setFetchAllPackages(allPackages)
-    # cs.activate()
+    # GRINDER.activate()
     GRINDER.sync(label, verbose)
