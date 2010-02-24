@@ -81,6 +81,9 @@ class Grinder:
         self.fetchAll = False     #default is only fetch latest packages
         self.parallelFetch = None
     
+    def getFetchAllPackages(self):
+        return self.fetchAll
+    
     def setFetchAllPackages(self, val):
         self.fetchAll = val
 
@@ -129,7 +132,7 @@ class Grinder:
         packages = self.getChannelPackages(dumpClient, self.systemid, channelLabel)
         #print "Available packages = ", packages
         LOG.info("%s packages are available, getting list of short metadata now." % (len(packages)))
-        pkgInfo = self.getShortPackageInfo(dumpClient, self.systemid, packages)
+        pkgInfo = self.getShortPackageInfo(dumpClient, self.systemid, packages, fetchAll=self.fetchAll)
         LOG.info("%s packages have been marked to be fetched" % (len(pkgInfo.values())))
         #print "PackageInfo = ", pkgInfo
 
