@@ -55,6 +55,8 @@ def setupLogging(verbose):
 def processCommandline():
     "process the commandline, setting the OPTIONS object"
     optionsTable = [
+        Option('-a', '--all', action='store_true', 
+            help='Fetch ALL packages from a channel, not just latest'),
         Option('-u', '--username', action='store', help='RHN User Account'),
         Option('-p', '--password', action='store', help='RHN Passowrd'),
         Option('-c', '--cert', action='store', help='Entitlement Certificate',
@@ -76,8 +78,12 @@ class Grinder:
         self.username = username
         self.password = password
         self.parallel = parallel
+        self.fetchAll = False     #default is only fetch latest packages
         self.parallelFetch = None
     
+    def setFetchAllPackages(self, val):
+        self.fetchAll = val
+
     def activate(self):
         SATELLITE_URL = "https://satellite.rhn.redhat.com/rpc/api"
 
@@ -124,7 +130,7 @@ class Grinder:
         #print "Available packages = ", packages
         LOG.info("%s packages are available, getting list of short metadata now." % (len(packages)))
         pkgInfo = self.getShortPackageInfo(dumpClient, self.systemid, packages)
-        LOG.info("metadata has been fetched")
+        LOG.info("%s packages have been marked to be fetched" % (len(pkgInfo.values())))
         #print "PackageInfo = ", pkgInfo
 
         fetched = []
@@ -160,7 +166,7 @@ class Grinder:
         packages = rhn_channel.getAttribute("packages")
         return packages.split(" ")
 
-    def getShortPackageInfo(self, client, systemId, listOfPackages):
+    def getShortPackageInfo(self, client, systemId, listOfPackages, fetchAll=False):
         dom = client.dump.packages_short(systemId, listOfPackages)
         #Example of data
         # <rhn-package-short name="perl-Sys-Virt" package-size="137602" md5sum="dfd888260a1618e0a2cb6b3b5b1feff9" 
@@ -169,10 +175,40 @@ class Grinder:
         rhn_package_shorts = dom.getElementsByTagName("rhn-package-short")
         packages = {}
         for pkgShort in rhn_package_shorts:
-            name, info = self.convertPkgShortToDict(pkgShort)
-            packages[name] = info
-
+            pkgName, nevra, info = self.convertPkgShortToDict(pkgShort)
+            if not fetchAll:
+                if not packages.has_key(pkgName):
+                    # only fetching latest packages, so dict key of 
+                    # 'name' is what we want to be unique
+                    LOG.debug("Adding package %s to queue", nevra)
+                    packages[pkgName] = info
+                else:
+                    #package already in our dict, so check to keep only latest nevra
+                    potentialOld = packages.get(pkgName)
+                    LOG.debug("A version for %s already exists, will need to compare to determine latest" \
+                        % (pkgName))
+                    LOG.debug("Existing: %s, new addition: %s" % (potentialOld["nevra"], nevra))
+                    if self.isPkgShortNewer(info, potentialOld):
+                        LOG.debug("Removing %s and adding %s" % (potentialOld["nevra"], nevra))
+                        packages[pkgName] = info
+            else:
+                # Fetching all packages, not just latest.  
+                # dict key needs to contain full nevra to be unique now
+                packages[nevra] = info
         return packages
+
+    def isPkgShortNewer(self, newPkg, oldPkg):
+        # Only check for packages of same arch
+        if newPkg["arch"] != oldPkg["arch"]:
+            return False
+        if newPkg["epoch"] > oldPkg["epoch"]:
+            return True
+        if newPkg["version"] > oldPkg["version"]:
+            return True
+        if newPkg["version"] == oldPkg["version"]:
+            if newPkg["release"] > oldPkg["release"]:
+                return True
+        return False
 
     def formNEVRA(self, info):
         nevra = info["name"]
@@ -192,7 +228,8 @@ class Grinder:
 
     def convertPkgShortToDict(self, pkgShort):
         info = {}
-        info["name"] = pkgShort.getAttribute("name")
+        name = pkgShort.getAttribute("name")
+        info["name"] = name
         info["package_size"] = pkgShort.getAttribute("package-size")
         info["md5sum"] = pkgShort.getAttribute("md5sum")
         info["arch"] = pkgShort.getAttribute("package-arch")
@@ -204,7 +241,7 @@ class Grinder:
         info["fetch_name"] = self.formFetchName(info)
         nevra = self.formNEVRA(info)
         info["nevra"] = nevra
-        return nevra, info
+        return name, nevra, info
 
 
 
@@ -251,6 +288,7 @@ signal.signal(signal.SIGINT, handleKeyboardInterrupt)
 if __name__ == '__main__':
     LOG.debug("Main executed")
     processCommandline()
+    allPackages = OPTIONS.all
     username = OPTIONS.username
     password = OPTIONS.password
     cert = OPTIONS.cert
@@ -260,5 +298,6 @@ if __name__ == '__main__':
     verbose = OPTIONS.verbose
     setupLogging(verbose)
     GRINDER = Grinder(username, password, cert, systemid, parallel)
+    GRINDER.setFetchAllPackages(allPackages)
     # cs.activate()
     GRINDER.sync(label, verbose)
