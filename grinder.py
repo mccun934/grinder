@@ -15,6 +15,7 @@
 # granted to use or replicate Red Hat trademarks that are incorporated
 # in this software or its documentation.
 #
+import sys
 import pdb
 import xmlrpclib
 import httplib
@@ -25,12 +26,31 @@ try:
     import hashlib as md5
 except:
     import md5
-
+import logging
+import signal
 from optparse import Option, OptionParser
 
 from rhn_transport import RHNTransport
 from ParallelFetch import ParallelFetch
 from PackageFetch import PackageFetch
+from GrinderExceptions import *
+
+GRINDER_LOG_FILENAME = "./log-grinder.out"
+LOG = logging.getLogger("grinder")
+
+def setupLogging(verbose):
+    
+    logging.basicConfig(filename=GRINDER_LOG_FILENAME, level=logging.DEBUG,
+                    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M', filemode='w')
+    console = logging.StreamHandler()
+    if verbose:
+        console.setLevel(logging.DEBUG)
+    else:
+        console.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+    console.setFormatter(formatter)
+    logging.getLogger('').addHandler(console)
 
 def processCommandline():
     "process the commandline, setting the OPTIONS object"
@@ -56,6 +76,7 @@ class Grinder:
         self.username = username
         self.password = password
         self.parallel = parallel
+        self.parallelFetch = None
     
     def activate(self):
         SATELLITE_URL = "https://satellite.rhn.redhat.com/rpc/api"
@@ -67,11 +88,15 @@ class Grinder:
         client.auth.logout(key)        
         print "Activated!"
 
-    def sync(self, channelName, verbose=0):
-        if channelName == "":
-            print "No channel name specified to sync."
-            return None
-        print "Sync!!"
+    def stop(self):
+        if (self.parallelFetch):
+            self.parallelFetch.stop()
+
+    def sync(self, channelLabel, verbose=0):
+        if channelLabel == "":
+            LOG.critical("No channel label specified to sync, abort sync.")
+            raise NoChannelLabelException()
+        LOG.info("sync(%s, %s) invoked" % (channelLabel, verbose))
         SATELLITE_URL = "http://satellite.rhn.redhat.com/"
         rhn = RHNTransport()    
         
@@ -82,7 +107,7 @@ class Grinder:
         
         retval = satClient.authentication.check(self.systemid)
         # result = (Map) satHandler.execute("authentication.login", params);
-        print "Returned from auth check : %s" % retval
+        LOG.debug("Returned from auth check : %s" % retval)
         
         #auth_map = satClient.authentication.login(self.systemid)
         # print "KEY: %s " % key
@@ -92,12 +117,14 @@ class Grinder:
         #um = xmlrpclib.Unmarshaller()
         #sparser = xmlrpclib.SlowParser(um)
         dumpClient = xmlrpclib.ServerProxy(SATELLITE_URL + "/SAT-DUMP/", verbose=verbose, transport=trans)
-        print "*** calling product_names ***"
+        LOG.debug("*** calling product_names ***")
         chan_fam_xml = dumpClient.dump.product_names(self.systemid)
-        print str(chan_fam_xml)
-        packages = self.getChannelPackages(dumpClient, self.systemid, channelName)
+        LOG.debug(str(chan_fam_xml))
+        packages = self.getChannelPackages(dumpClient, self.systemid, channelLabel)
         #print "Available packages = ", packages
+        LOG.info("%s packages are available, getting list of short metadata now." % (len(packages)))
         pkgInfo = self.getShortPackageInfo(dumpClient, self.systemid, packages)
+        LOG.info("metadata has been fetched")
         #print "PackageInfo = ", pkgInfo
 
         fetched = []
@@ -106,14 +133,18 @@ class Grinder:
             #
             # Trying new parallel approach
             #
-            pf = ParallelFetch(self.systemid, SATELLITE_URL, channelName, numThreads=int(self.parallel))
-            pf.addPkgList(pkgInfo.values())
-            pf.start()
-            fetched, errors = pf.waitForFinish()
+            numThreads = int(self.parallel)
+            LOG.info("Running in parallel fetch mode with %s threads" % (numThreads))
+            self.parallelFetch = ParallelFetch(self.systemid, SATELLITE_URL, 
+                    channelLabel, numThreads=numThreads)
+            self.parallelFetch.addPkgList(pkgInfo.values())
+            self.parallelFetch.start()
+            fetched, errors = self.parallelFetch.waitForFinish()
         else:
-            pf = PackageFetch(self.systemid, SATELLITE_URL, channelName)
+            LOG.info("Running in serial fetch mode")
+            pf = PackageFetch(self.systemid, SATELLITE_URL, channelLabel)
             for index, pkg in enumerate(pkgInfo.values()):
-                print "%s packages left to fetch" % (len(pkgInfo.values()) - index)
+                LOG.info("%s packages left to fetch" % (len(pkgInfo.values()) - index))
                 if pf.fetchRPM(pkg):
                     fetched.append(pkg)
                 else:
@@ -192,55 +223,42 @@ class Grinder:
 
         return status, out
 
+
+
 if __name__ != '__main__':
     raise ImportError, "module cannot be imported"
-
-import sys
-def systemExit(code, msgs=None):
-    "Exit with a code and optional message(s). Saved a few lines of code."
-
-    if msgs:
-        if type(msgs) not in [type([]), type(())]:
-            msgs = (msgs, )
-        for msg in msgs:
-            sys.stderr.write(str(msg)+'\n')
-    sys.exit(code)
-
-try:
-    import os
-    import socket
-except KeyboardInterrupt:
-    systemExit(0, "\nUser interrupted process.")
 
 _LIBPATH = "/usr/share/"
 # add to the path if need be
 if _LIBPATH not in sys.path:
     sys.path.append(_LIBPATH)
 
-def main():
-    # execute
-    try:
-        print "Main executed"
-        processCommandline()
-        username = OPTIONS.username
-        password = OPTIONS.password
-        cert = OPTIONS.cert
-        systemid = OPTIONS.systemid
-        parallel = OPTIONS.parallel
-        label = OPTIONS.label
-        verbose = OPTIONS.verbose
-        cs = Grinder(username, password, cert, systemid, parallel)
-        # cs.activate()
-        cs.sync(label, verbose)
-        
-    except KeyboardInterrupt:
-        systemExit(0, "\nUser interrupted process.")
 
-    return 0
+# Global instance of Grinder so we can issue a stop command 
+# in a signal handler for CTRL-C
+GRINDER = None
+#
+# Registering a signal handler on SIGINT to help in the 
+# parallel case, when we need a way to stop all the threads 
+# when someone CTRL-C's
+#
+def handleKeyboardInterrupt(signalNumer, frame):
+    LOG.error("SIGINT caught, will stop process.")
+    GRINDER.stop()
 
+signal.signal(signal.SIGINT, handleKeyboardInterrupt)
 
 if __name__ == '__main__':
-    try:
-        sys.exit(abs(main() or 0))
-    except KeyboardInterrupt:
-        systemExit(0, "\nUser interrupted process.")
+    LOG.debug("Main executed")
+    processCommandline()
+    username = OPTIONS.username
+    password = OPTIONS.password
+    cert = OPTIONS.cert
+    systemid = OPTIONS.systemid
+    parallel = OPTIONS.parallel
+    label = OPTIONS.label
+    verbose = OPTIONS.verbose
+    setupLogging(verbose)
+    GRINDER = Grinder(username, password, cert, systemid, parallel)
+    # cs.activate()
+    GRINDER.sync(label, verbose)

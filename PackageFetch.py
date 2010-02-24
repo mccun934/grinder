@@ -25,12 +25,17 @@ try:
 except:
     import md5
 
+import logging
+
+LOG = logging.getLogger("PackageFetch")
+
+
 class PackageFetch(object):
-    def __init__(self, systemId, baseURL, channelName):
+    def __init__(self, systemId, baseURL, channelLabel):
         self.authMap = None
         self.systemId = systemId
         self.baseURL = baseURL
-        self.channelName = channelName
+        self.channelLabel = channelLabel
 
     #
     # TODO:  Consider making this a static method so all threads/instances will
@@ -57,8 +62,8 @@ class PackageFetch(object):
         self.authMap["X-RHN-Satellite-XML-Dump-Version"] = "3.5"
         return self.authMap
 
-    def getFetchURL(self, channelName, fetchName):
-        return "/SAT/$RHN/" + channelName + "/getPackage/" + fetchName;
+    def getFetchURL(self, channelLabel, fetchName):
+        return "/SAT/$RHN/" + channelLabel + "/getPackage/" + fetchName;
 
 
     def verifyFile(self, filePath, size, md5sum):
@@ -82,11 +87,11 @@ class PackageFetch(object):
          False is there was an error, or downloaded data didn't match expected values
         """
         if not os.path.isdir(dirPath):
-            print "Creating directory: ", dirPath
+            LOG.info("Creating directory: %s" % dirPath)
             os.mkdir(dirPath)
         filePath = os.path.join(dirPath, rpmName)
         if os.path.exists(filePath) and self.verifyFile(filePath, size, md5sum):
-            print "%s exists with correct size and md5sum, no need to fetch." % (filePath)
+            LOG.debug("%s exists with correct size and md5sum, no need to fetch." % (filePath))
             return True
 
         toRead = 64 * 1024
@@ -103,23 +108,23 @@ class PackageFetch(object):
             md5Hash.update(data)
             bytesRead += len(data)
             if verbose:
-                print "%s Estimated bandwidth: %s KB/sec" \
-                        % (rpmName, len(data)/((endTime-startTime)*1000))
+                LOG.debug("%s Estimated bandwidth: %s KB/sec" \
+                        % (rpmName, len(data)/((endTime-startTime)*1000)))
         file.close()
         calcMd5sum = md5Hash.hexdigest()
         if bytesRead != int(size):
-            print "Size mismatch, read: %s bytes, was expecting %s bytes" \
-                % (bytesRead, size)
+            LOG.error("%s size mismatch, read: %s bytes, was expecting %s bytes" \
+                % (rpmName, bytesRead, size))
             os.remove(filePath)
             return False
         elif calcMd5sum != md5sum:
-            print "md5sum mismatch, read md5sum of: %s expected md5sum of %s" \
-                %(calcMd5sum, md5sum)
+            LOG.error("%s md5sum mismatch, read md5sum of: %s expected md5sum of %s" \
+                %(rpmName, calcMd5sum, md5sum))
             os.remove(filePath)
             return False
         return True
 
-    def fetchRPM(self, pkg, dirPath=None):
+    def fetchRPM(self, pkg, dirPath=None, retryTimes=2):
         """
         Input:
             pkg = dict containing 'fetch_name', 'package_size', 'md5'
@@ -135,20 +140,20 @@ class PackageFetch(object):
 
         nevra = pkg["nevra"]
         fetchName = pkg["fetch_name"]
-        fetchURL = self.getFetchURL(self.channelName, fetchName)
-        print "Fetching: %s at %s" % (nevra, fetchURL)
+        fetchURL = self.getFetchURL(self.channelLabel, fetchName)
+        LOG.info("Fetching: %s %s" % (self.channelLabel, nevra))
 
         conn.request("GET", fetchURL, headers=authMap)
         resp = conn.getresponse()
         if resp.status == 401:
-            print "Got a response of %s:%s, Will refresh authentication credentials and retry" \
-                % (resp.status, resp.reason)
+            LOG.warn("Got a response of %s:%s, Will refresh authentication credentials and retry" \
+                % (resp.status, resp.reason))
             authMap = self.login(refresh=True)
             conn.request("GET", fetchURL, headers=authMap)
             resp = conn.getresponse()
         if resp.status != 200:
-            print "ERROR: fetching %s.  Our Authentication Info is : %s" \
-                % (fetchURL, authMap)
+            LOG.critical("ERROR: fetching %s.  Our Authentication Info is : %s" \
+                % (fetchURL, authMap))
             conn.close()
             return False
 
@@ -156,16 +161,23 @@ class PackageFetch(object):
         md5sum = pkg['md5sum']
         d = dirPath
         if d == None:
-            d = self.channelName
+            d = self.channelLabel
+        #
+        # Incase of a network glitch or issue with RHN, retry the rpm fetch
+        #
         status = self.storeRPM(nevra, resp, size, md5sum, dirPath=d)
         conn.close()
+        if not status and retryTimes > 0:
+            retryTimes -= 1
+            LOG.warn("Retrying fetch of: %s with %s retry attempts left." % (nevra, retryTimes))
+            return self.fetchRPM(pkg, dirPath, retryTimes)
         return status
 
 if __name__ == "__main__":
     systemId = open("/etc/sysconfig/rhn/systemid").read()
     baseURL = "http://satellite.rhn.redhat.com"
-    channelName = "rhel-i386-server-vt-5"
-    pf = PackageFetch(systemId, baseURL, channelName)
+    channelLabel = "rhel-i386-server-vt-5"
+    pf = PackageFetch(systemId, baseURL, channelLabel)
     pkg = {}
     pkg['nevra'] = "Virtualization-es-ES-5.2-9.noarch.rpm"
     pkg['fetch_name'] = "Virtualization-es-ES-5.2-9:.noarch.rpm"

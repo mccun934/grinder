@@ -16,10 +16,14 @@
 # in this software or its documentation.
 #
 import time
+import logging
+import threading
 from threading import Thread
-from Queue import Queue
+import Queue
 
 from PackageFetch import PackageFetch
+
+LOG = logging.getLogger("ParallelFetch")
 
 class ParallelFetch(object):
     def __init__(self, systemId, baseURL, channelName, numThreads=3):
@@ -27,9 +31,9 @@ class ParallelFetch(object):
         self.baseURL = baseURL
         self.channelName = channelName
         self.numThreads = numThreads
-        self.toSyncQ = Queue()
-        self.syncCompleteQ = Queue()
-        self.syncErrorQ = Queue()
+        self.toSyncQ = Queue.Queue()
+        self.syncCompleteQ = Queue.Queue()
+        self.syncErrorQ = Queue.Queue()
         self.threads = []
         for i in range(self.numThreads):
             wt = WorkerThread(self.systemId, self.baseURL, self.channelName, self.toSyncQ, 
@@ -47,6 +51,10 @@ class ParallelFetch(object):
         for t in self.threads:
             t.start()
 
+    def stop(self):
+        for t in self.threads:
+            t.stop()
+
     def waitForFinish(self):
         """
         Will wait for all worker threads to finish
@@ -56,7 +64,7 @@ class ParallelFetch(object):
         """
         for t in self.threads:
             t.join()
-        print "All threads have finished."
+        LOG.debug("All threads have finished.")
         successList = []
         while not self.syncCompleteQ.empty():
             p = self.syncCompleteQ.get_nowait()
@@ -65,7 +73,7 @@ class ParallelFetch(object):
         while not self.syncErrorQ.empty():
             p = self.syncErrorQ.get_nowait()
             errorList.append(p)
-        print "ParallelFetch: %s package successfully fetched, %s packages had errors" % (len(successList), len(errorList))
+        LOG.info("ParallelFetch: %s package successfully fetched, %s packages had errors" % (len(successList), len(errorList)))
         return (successList, errorList)
 
 
@@ -78,17 +86,24 @@ class WorkerThread(PackageFetch, Thread):
         self.syncCompleteQ = syncCompleteQ
         self.syncErrorQ = syncErrorQ
         self.authMap = None
-        
+        self._stop = threading.Event()
+    
+    def stop(self):
+        self._stop.set()
 
     def run(self):
-        print "Run has started"
-        while not self.toSyncQ.empty():
-            print "%s packages left on Queue" % (self.toSyncQ.qsize())
-            pkg = self.toSyncQ.get()
-            if self.fetchRPM(pkg):
-                self.syncCompleteQ.put(pkg)
-            else:
-                self.syncErrorQ.put(pkg)
+        LOG.debug("Run has started")
+        while not self.toSyncQ.empty() and not self._stop.isSet():
+            LOG.info("%s packages left on Queue" % (self.toSyncQ.qsize()))
+            try:
+                pkg = self.toSyncQ.get_nowait()
+                if self.fetchRPM(pkg):
+                    self.syncCompleteQ.put(pkg)
+                else:
+                    self.syncErrorQ.put(pkg)
+            except Queue.Empty:
+                LOG.debug("Queue is empty, thread will end")
+        LOG.debug("Thread ending")
 
 
 if __name__ == "__main__":
