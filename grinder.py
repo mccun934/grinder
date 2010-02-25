@@ -121,7 +121,7 @@ class Grinder:
             LOG.critical("Unable to authenticate this systemId: %s" % (self.systemid))
             LOG.critical(err.faultString)
             LOG.critical(err.faultCode)
-            raise AuthenticationException()
+            raise BadSystemIdException()
 
         
         #auth_map = satClient.authentication.login(self.systemid)
