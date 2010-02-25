@@ -30,7 +30,6 @@ except:
     import md5
 import logging
 import signal
-import types
 from optparse import Option, OptionParser
 from xmlrpclib import Fault
 from rhn_api import RhnApi
