@@ -107,6 +107,7 @@ class Grinder:
             self.parallelFetch.stop()
 
     def sync(self, channelLabel, verbose=0):
+        startTime = time.time()
         if channelLabel == "":
             LOG.critical("No channel label specified to sync, abort sync.")
             raise NoChannelLabelException()
@@ -123,17 +124,12 @@ class Grinder:
             LOG.critical(err.faultCode)
             raise BadSystemIdException()
 
-        
-        #auth_map = satClient.authentication.login(self.systemid)
-        # print "KEY: %s " % key
         satDumpClient = SatDumpClient(self.baseURL, verbose=verbose)
         LOG.debug("*** calling product_names ***")
         packages = satDumpClient.getChannelPackages(self.systemid, channelLabel)
-        #print "Available packages = ", packages
         LOG.info("%s packages are available, getting list of short metadata now." % (len(packages)))
         pkgInfo = satDumpClient.getShortPackageInfo(self.systemid, packages, filterLatest = not self.fetchAll)
         LOG.info("%s packages have been marked to be fetched" % (len(pkgInfo.values())))
-        #print "PackageInfo = ", pkgInfo
 
         fetched = []
         errors = []
@@ -157,9 +153,13 @@ class Grinder:
                     fetched.append(pkg)
                 else:
                     errors.append(pkg)
+        endTime = time.time()
+        LOG.info("Sync'd <%s> %s packages, %s errors, completed in %s seconds" \
+                % (channelLabel, len(fetched), len(errors), (endTime-startTime)))
         return fetched, errors
 
-    def createRepo(dir):
+    def createRepo(self, dir):
+        startTime = time.time()
         status, out = commands.getstatusoutput('createrepo %s' % dir)
 
         class CreateRepoError:
@@ -171,7 +171,8 @@ class Grinder:
 
         if status != 0:
             raise CreateRepoError(out)
-
+        endTime = time.time()
+        LOG.info("createrepo on %s finished in %s seconds" % (dir, (endTime-startTime)))
         return status, out
 
 
@@ -217,4 +218,8 @@ if __name__ == '__main__':
     GRINDER = Grinder(url, username, password, cert, systemid, parallel)
     GRINDER.setFetchAllPackages(allPackages)
     # GRINDER.activate()
+    # TODO:
+    # Assumption:  we are writing packages to current directory as "channel-label"
+    # Add an option so we can specifiy a base directory to store packages at
     GRINDER.sync(label, verbose)
+    GRINDER.createRepo(label)
