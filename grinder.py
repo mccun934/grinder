@@ -118,7 +118,9 @@ class Grinder:
         client.auth.logout(key)        
         print "Deactivated!"
 
-    def activate(self, satClient):
+    def activate(self):
+        rhn = RHNTransport()    
+        satClient = RhnApi(self.baseURL + "/SAT", verbose=verbose, transport=rhn)
         # First check if we are active
         active = False
         retval = satClient.authentication.check(self.systemid)
@@ -163,9 +165,6 @@ class Grinder:
             LOG.critical("No channel label specified to sync, abort sync.")
             raise NoChannelLabelException()
         LOG.info("sync(%s, %s) invoked" % (channelLabel, verbose))
-        rhn = RHNTransport()    
-        satClient = RhnApi(self.baseURL + "/SAT", verbose=verbose, transport=rhn)
-        self.activate(satClient)
         satDumpClient = SatDumpClient(self.baseURL, verbose=verbose)
         LOG.debug("*** calling product_names ***")
         packages = satDumpClient.getChannelPackages(self.systemid, channelLabel)
@@ -261,6 +260,7 @@ if __name__ == '__main__':
     GRINDER = Grinder(url, username, password, cert, systemid, parallel)
     GRINDER.setFetchAllPackages(allPackages)
     GRINDER.setSkipProductList(["rh-public", "k12ltsp", "education"])
+    GRINDER.activate()
     if (listchannels):
         GRINDER.displayListOfChannels()
         sys.exit(0)
