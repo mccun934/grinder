@@ -180,20 +180,21 @@ class Grinder:
         for pkgShort in rhn_package_shorts:
             pkgName, nevra, info = self.convertPkgShortToDict(pkgShort)
             if not fetchAll:
-                if not packages.has_key(pkgName):
-                    # only fetching latest packages, so dict key of 
-                    # 'name' is what we want to be unique
+                # only fetching latest packages, so dict key of 
+                # 'name'.'arch' is what we want to be unique
+                pkgKey = pkgName+"." + info["arch"]
+                if not packages.has_key(pkgKey):
                     LOG.debug("Adding package %s to queue", nevra)
-                    packages[pkgName] = info
+                    packages[pkgKey] = info
                 else:
                     #package already in our dict, so check to keep only latest nevra
-                    potentialOld = packages.get(pkgName)
+                    potentialOld = packages.get(pkgKey)
                     LOG.debug("A version for %s already exists, will need to compare to determine latest" \
-                        % (pkgName))
+                        % (pkgKey))
                     LOG.debug("Existing: %s, new addition: %s" % (potentialOld["nevra"], nevra))
                     if self.isPkgShortNewer(info, potentialOld):
                         LOG.debug("Removing %s and adding %s" % (potentialOld["nevra"], nevra))
-                        packages[pkgName] = info
+                        packages[pkgKey] = info
             else:
                 # Fetching all packages, not just latest.  
                 # dict key needs to contain full nevra to be unique now
