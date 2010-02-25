@@ -160,7 +160,7 @@ class Grinder:
 
     def createRepo(self, dir):
         startTime = time.time()
-        status, out = commands.getstatusoutput('createrepo %s' % dir)
+        status, out = commands.getstatusoutput('createrepo --update %s' % dir)
 
         class CreateRepoError:
             def __init__(self, output):
