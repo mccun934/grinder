@@ -48,9 +48,7 @@ class RHNTransport(TransportWithHeaders):
     # @param sock Socket handle (or None, if the socket object
     #    could not be accessed).
     # @return Response tuple and target method.
-
     def _parse_response(self, file, sock):
-        # read response from input file/socket, and parse it
         response = ""
         while 1:
             if sock:
@@ -60,7 +58,6 @@ class RHNTransport(TransportWithHeaders):
             if not snippet:
                 break
             response += snippet
-
         #
         # TODO:
         # Would prefer to grab header and read if data is gzip or not before doing below, but not
@@ -77,11 +74,21 @@ class RHNTransport(TransportWithHeaders):
         if self.verbose:
             print "body:", repr(unzippedResponse)
         
-        dom = xml.dom.minidom.parseString(unzippedResponse)
         if file:
             file.close()
         if sock:
             sock.close()
 
-        #HACK, __request expects what we return to support "len()", so throwing this in a list for now
-        return [dom]
+        p, u = self.getparser()
+        p.feed(unzippedResponse)
+        # First try to parse as a standard XMLRPC response XML.  If that 
+        # fails just return the DOM object
+        try:
+            retval = u.close()
+            return retval
+        except xmlrpclib.ResponseError, re:
+            dom = xml.dom.minidom.parseString(unzippedResponse)
+            # HACK, __request expects what we return to support "len()", 
+            # so throwing this in a list for now
+            return [dom]
+        

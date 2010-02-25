@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2010 Red Hat, Inc.
 #
-# Authors: Mike McCune
+# Authors: Mike McCune, John Matthews
 #
 # This software is licensed to you under the GNU General Public License,
 # version 2 (GPLv2). There is NO WARRANTY for this software, express or
@@ -17,7 +17,7 @@
 #
 import sys
 import pdb
-import xmlrpclib
+
 import httplib
 import urlparse
 import time
@@ -31,7 +31,8 @@ except:
 import logging
 import signal
 from optparse import Option, OptionParser
-
+from xmlrpclib import Fault
+from rhn_api import RhnApi
 from rhn_transport import RHNTransport
 from ParallelFetch import ParallelFetch
 from PackageFetch import PackageFetch
@@ -92,15 +93,37 @@ class Grinder:
     
     def setFetchAllPackages(self, val):
         self.fetchAll = val
-
-    def activate(self):
+    
+    def deactivate(self):
         SATELLITE_URL = "%s/rpc/api" % (self.baseURL)
-        client = xmlrpclib.Server(SATELLITE_URL, verbose=0)
+        client = RhnApi(SATELLITE_URL, verbose=0)
         key = client.auth.login(self.username, self.password)
-        retval = client.satellite.activateSatellite(self.systemid, self.cert)
-        print "retval from activation: %s"  % retval
+        retval = client.satellite.deactivateSatellite(self.systemid)
+        print "retval from deactivation: %s"  % retval
         client.auth.logout(key)        
-        print "Activated!"
+        print "Deactivated!"
+
+    def activate(self, satClient):
+        # First check if we are active
+        active = False
+        retval = satClient.authentication.check(self.systemid)
+        LOG.debug("AUTH CHECK: %s " % str(retval))
+        if (retval == 1):
+            LOG.debug("We are activated ... continue!")
+            active = True
+        else:
+            LOG.debug("Not active")
+            
+        if (not active): 
+            SATELLITE_URL = "%s/rpc/api" % (self.baseURL)
+            client = RhnApi(SATELLITE_URL, verbose=0)
+            key = client.auth.login(self.username, self.password)
+            retval = client.satellite.activateSatellite(self.systemid, self.cert)
+            LOG.debug("retval from activation: %s"  % retval)
+            if (retval != 1):
+                raise CantActivateException()
+            client.auth.logout(key)        
+            LOG.debug("Activated!")
 
     def stop(self):
         if (self.parallelFetch):
@@ -112,18 +135,9 @@ class Grinder:
             LOG.critical("No channel label specified to sync, abort sync.")
             raise NoChannelLabelException()
         LOG.info("sync(%s, %s) invoked" % (channelLabel, verbose))
-        satClient = xmlrpclib.ServerProxy(self.baseURL + "/SAT", verbose=verbose)
-        # print "set trace"
-        # pdb.set_trace()
-        try:
-            retval = satClient.authentication.check(self.systemid)
-            LOG.debug("Returned from auth check : %s" % retval)
-        except xmlrpclib.Fault, err:
-            LOG.critical("Unable to authenticate this systemId: %s" % (self.systemid))
-            LOG.critical(err.faultString)
-            LOG.critical(err.faultCode)
-            raise BadSystemIdException()
-
+        rhn = RHNTransport()    
+        satClient = RhnApi(self.baseURL + "/SAT", verbose=verbose, transport=rhn)
+        self.activate(satClient)
         satDumpClient = SatDumpClient(self.baseURL, verbose=verbose)
         LOG.debug("*** calling product_names ***")
         packages = satDumpClient.getChannelPackages(self.systemid, channelLabel)
@@ -146,7 +160,7 @@ class Grinder:
             fetched, errors = self.parallelFetch.waitForFinish()
         else:
             LOG.info("Running in serial fetch mode")
-            pf = PackageFetch(self.systemid, SATELLITE_URL, channelLabel)
+            pf = PackageFetch(self.systemid, self.baseURL, channelLabel)
             for index, pkg in enumerate(pkgInfo.values()):
                 LOG.info("%s packages left to fetch" % (len(pkgInfo.values()) - index))
                 if pf.fetchRPM(pkg):
@@ -217,9 +231,5 @@ if __name__ == '__main__':
     setupLogging(verbose)
     GRINDER = Grinder(url, username, password, cert, systemid, parallel)
     GRINDER.setFetchAllPackages(allPackages)
-    # GRINDER.activate()
-    # TODO:
-    # Assumption:  we are writing packages to current directory as "channel-label"
-    # Add an option so we can specifiy a base directory to store packages at
     GRINDER.sync(label, verbose)
     GRINDER.createRepo(label)
