@@ -65,7 +65,8 @@ def processCommandline():
             default='/etc/sysconfig/rhn/entitlement-cert.xml'),
         Option('-L', '--listchannels', action='store_true', help='List all channels we have access to synchronize', default=""),
         Option('-p', '--password', action='store', help='RHN Passowrd'),
-        Option('-P', '--parallel', action='store', help='Number of threads to fetch in parallel'),
+        Option('-P', '--parallel', action='store', 
+            help='Number of threads to fetch in parallel.  Defaults to 1', default=1),
         Option('-s', '--systemid', action='store', help='System ID',
             default='/etc/sysconfig/rhn/systemid'),
         Option('-u', '--username', action='store', help='RHN User Account'),
@@ -196,26 +197,13 @@ class Grinder:
 
         fetched = []
         errors = []
-        if self.parallel:
-            #
-            # Trying new parallel approach
-            #
-            numThreads = int(self.parallel)
-            LOG.info("Running in parallel fetch mode with %s threads" % (numThreads))
-            self.parallelFetch = ParallelFetch(self.systemid, self.baseURL, 
-                    channelLabel, numThreads=numThreads)
-            self.parallelFetch.addPkgList(pkgInfo.values())
-            self.parallelFetch.start()
-            fetched, errors = self.parallelFetch.waitForFinish()
-        else:
-            LOG.info("Running in serial fetch mode")
-            pf = PackageFetch(self.systemid, self.baseURL, channelLabel)
-            for index, pkg in enumerate(pkgInfo.values()):
-                LOG.info("%s packages left to fetch" % (len(pkgInfo.values()) - index))
-                if pf.fetchRPM(pkg):
-                    fetched.append(pkg)
-                else:
-                    errors.append(pkg)
+        numThreads = int(self.parallel)
+        LOG.info("Running in parallel fetch mode with %s threads" % (numThreads))
+        self.parallelFetch = ParallelFetch(self.systemid, self.baseURL, 
+                channelLabel, numThreads=numThreads)
+        self.parallelFetch.addPkgList(pkgInfo.values())
+        self.parallelFetch.start()
+        fetched, errors = self.parallelFetch.waitForFinish()
         endTime = time.time()
         LOG.info("Sync'd <%s> %s packages, %s errors, completed in %s seconds" \
                 % (channelLabel, len(fetched), len(errors), (endTime-startTime)))
@@ -258,8 +246,12 @@ GRINDER = None
 # when someone CTRL-C's
 #
 def handleKeyboardInterrupt(signalNumer, frame):
-    LOG.error("SIGINT caught, will stop process.")
+    LOG.error("SIGINT caught, stopping synchronization.")
     GRINDER.stop()
+    # grinder's stop() call will wait for the child threads to realize 
+    # they need to be stopped.  then after that we need to stop completely
+    # otherwise the remainder of the __main__ will continue
+    sys.exit()
 
 signal.signal(signal.SIGINT, handleKeyboardInterrupt)
 

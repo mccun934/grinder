@@ -68,7 +68,6 @@ class RHNTransport(TransportWithHeaders):
             unzippedResponse = gzipDecodeStr.read()
         except IOError, e:
             #Error messages from RHN are not gzipped, bust most (maybe all) data calls will be
-            print "Caught exception when trying to ungzip response"
             unzippedResponse = response
 
         if self.verbose:

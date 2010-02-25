@@ -54,6 +54,20 @@ class ParallelFetch(object):
     def stop(self):
         for t in self.threads:
             t.stop()
+        self._waitForThreads()
+        
+    def _running(self):
+        working = 0
+        for t in self.threads:
+            if (t.isAlive()):
+                working += 1
+        return (working > 0)
+
+    def _waitForThreads(self):
+        while (self._running()):
+            LOG.debug("Wait 1.  check again")
+            time.sleep(0.5)
+        
 
     def waitForFinish(self):
         """
@@ -62,9 +76,9 @@ class ParallelFetch(object):
          successList is a list of all packages successfully synced
          errorList is a list of all packages which couldn't be synced
         """
-        for t in self.threads:
-            t.join()
-        LOG.debug("All threads have finished.")
+        self._waitForThreads()
+            
+        LOG.info("All threads have finished.")
         successList = []
         while not self.syncCompleteQ.empty():
             p = self.syncCompleteQ.get_nowait()
