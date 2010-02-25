@@ -30,6 +30,7 @@ except:
     import md5
 import logging
 import signal
+import types
 from optparse import Option, OptionParser
 from xmlrpclib import Fault
 from rhn_api import RhnApi
@@ -63,7 +64,6 @@ def processCommandline():
             help='Fetch ALL packages from a channel, not just latest'),
         Option('-c', '--cert', action='store', help='Entitlement Certificate',
             default='/etc/sysconfig/rhn/entitlement-cert.xml'),
-        Option('-l', '--label', action='store', help='Channel Label ex: rhel-i386-server-vt', default=""),
         Option('-L', '--listchannels', action='store_true', help='List all channels we have access to synchronize', default=""),
         Option('-p', '--password', action='store', help='RHN Passowrd'),
         Option('-P', '--parallel', action='store', help='Number of threads to fetch in parallel'),
@@ -74,9 +74,9 @@ def processCommandline():
         Option('-v', '--verbose',  action='store_true', help='verbose output', default=False),
 
     ]
-    optionParser = OptionParser(option_list=optionsTable, usage="%prog [OPTION] [<package>]")
-    global OPTIONS, files
-    OPTIONS, files = optionParser.parse_args()
+    optionParser = OptionParser(option_list=optionsTable, usage="%prog [OPTION] channel_label1 channel_label2, etc")
+    global OPTIONS, args
+    OPTIONS, args = optionParser.parse_args()
 
 class Grinder:
     def __init__(self, url, username, password, cert, systemid, parallel):
@@ -145,6 +145,29 @@ class Grinder:
     def stop(self):
         if (self.parallelFetch):
             self.parallelFetch.stop()
+
+    def checkChannels(self, channelsToSync):
+        """
+        Input:
+            channelsToSync - list of channels to sync
+        Output:
+             list containing bad channel names
+        """
+        satDumpClient = SatDumpClient(self.baseURL)
+        channelFamilies = satDumpClient.getChannelFamilies(self.systemid)
+        badChannel = []
+        for channelLabel in channelsToSync:
+            found = False
+            for d in channelFamilies.values():
+                if channelLabel in d["channel_labels"]:
+                    LOG.debug("Found %s under %s" % (channelLabel, d["label"]))
+                    found = True
+                    break
+            if not found:
+                LOG.debug("Unable to find %s, adding it to badChannel list" % (channelLabel))
+                badChannel.append(channelLabel)
+        return badChannel
+
 
     def displayListOfChannels(self):
         satDumpClient = SatDumpClient(self.baseURL)
@@ -250,7 +273,6 @@ if __name__ == '__main__':
     cert = OPTIONS.cert
     systemid = OPTIONS.systemid
     parallel = OPTIONS.parallel
-    label = OPTIONS.label
     listchannels = OPTIONS.listchannels
     verbose = OPTIONS.verbose
     url = OPTIONS.url
@@ -264,5 +286,11 @@ if __name__ == '__main__':
     if (listchannels):
         GRINDER.displayListOfChannels()
         sys.exit(0)
-    GRINDER.sync(label, verbose)
-    GRINDER.createRepo(label)
+    badChannels = GRINDER.checkChannels(args)
+    for b in badChannels:
+        print "'%s' can not be found as a channel available to download" % (b)
+    if len(badChannels) > 0:
+        sys.exit(1)
+    for cl in args:
+        GRINDER.sync(cl, verbose)
+        GRINDER.createRepo(cl)
