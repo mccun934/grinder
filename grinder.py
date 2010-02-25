@@ -22,6 +22,8 @@ import httplib
 import urlparse
 import time
 import commands
+import rpmUtils
+import rpmUtils.miscutils
 try:
     import hashlib as md5
 except:
@@ -192,7 +194,7 @@ class Grinder:
                     LOG.debug("A version for %s already exists, will need to compare to determine latest" \
                         % (pkgKey))
                     LOG.debug("Existing: %s, new addition: %s" % (potentialOld["nevra"], nevra))
-                    if self.isPkgShortNewer(info, potentialOld):
+                    if self.isNewerEVR(info, potentialOld):
                         LOG.debug("Removing %s and adding %s" % (potentialOld["nevra"], nevra))
                         packages[pkgKey] = info
             else:
@@ -201,6 +203,23 @@ class Grinder:
                 packages[nevra] = info
         return packages
 
+
+    def isNewerEVR(self, pkgOne, pkgTwo):
+        # Only check for packages of same arch
+        if pkgOne["arch"] != pkgTwo["arch"]:
+            return False
+        e1 = pkgOne["epoch"]
+        v1 = pkgOne["version"]
+        r1 = pkgOne["release"]
+
+        e2 = pkgTwo["epoch"]
+        v2 = pkgTwo["version"]
+        r2 = pkgTwo["release"]
+
+        if rpmUtils.miscutils.compareEVR((e1,v1,r1), (e2,v2,r2)) == 1:
+            return True
+        return False
+    
     def isPkgShortNewer(self, pkgOne, pkgTwo):
         # Only check for packages of same arch
         if pkgOne["arch"] != pkgTwo["arch"]:
