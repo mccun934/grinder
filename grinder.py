@@ -64,6 +64,7 @@ def processCommandline():
         Option('-c', '--cert', action='store', help='Entitlement Certificate',
             default='/etc/sysconfig/rhn/entitlement-cert.xml'),
         Option('-l', '--label', action='store', help='Channel Label ex: rhel-i386-server-vt', default=""),
+        Option('-L', '--listchannels', action='store_true', help='List all channels we have access to synchronize', default=""),
         Option('-p', '--password', action='store', help='RHN Passowrd'),
         Option('-P', '--parallel', action='store', help='Number of threads to fetch in parallel'),
         Option('-s', '--systemid', action='store', help='System ID',
@@ -87,13 +88,27 @@ class Grinder:
         self.parallel = parallel
         self.fetchAll = False     #default is only fetch latest packages
         self.parallelFetch = None
-    
+        self.skipProductList = []
+        self.skipPackageList = []
+
     def getFetchAllPackages(self):
         return self.fetchAll
     
     def setFetchAllPackages(self, val):
         self.fetchAll = val
     
+    def getSkipProductList(self):
+        return self.skipProductList
+
+    def setSkipProductList(self, skipProductList):
+        self.skipProductList = skipProductList
+    
+    def getSkipPackageList(self):
+        return self.skipPackageList
+
+    def setSkipPackageList(self, skipPackageList):
+        self.skipPackageList = skipPackageList
+
     def deactivate(self):
         SATELLITE_URL = "%s/rpc/api" % (self.baseURL)
         client = RhnApi(SATELLITE_URL, verbose=0)
@@ -128,6 +143,19 @@ class Grinder:
     def stop(self):
         if (self.parallelFetch):
             self.parallelFetch.stop()
+
+    def displayListOfChannels(self):
+        satDumpClient = SatDumpClient(self.baseURL)
+        channelFamilies = satDumpClient.getChannelFamilies(self.systemid)
+        print("List of channels:")
+        for d in channelFamilies.values():
+            if (d["label"] in self.skipProductList):
+                LOG.debug("Skipping display of %s because it is in product skip list" % (d["label"]))
+                continue
+            print("\nProduct Family: %s" % (d["label"]))
+            for lbl in d["channel_labels"]:
+                print("\tChannel Label: %s" % (lbl))
+
 
     def sync(self, channelLabel, verbose=0):
         startTime = time.time()
@@ -224,6 +252,7 @@ if __name__ == '__main__':
     systemid = OPTIONS.systemid
     parallel = OPTIONS.parallel
     label = OPTIONS.label
+    listchannels = OPTIONS.listchannels
     verbose = OPTIONS.verbose
     url = OPTIONS.url
     if not url:
@@ -231,5 +260,9 @@ if __name__ == '__main__':
     setupLogging(verbose)
     GRINDER = Grinder(url, username, password, cert, systemid, parallel)
     GRINDER.setFetchAllPackages(allPackages)
+    GRINDER.setSkipProductList(["rh-public", "k12ltsp", "education"])
+    if (listchannels):
+        GRINDER.displayListOfChannels()
+        sys.exit(0)
     GRINDER.sync(label, verbose)
     GRINDER.createRepo(label)
