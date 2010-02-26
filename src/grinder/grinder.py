@@ -80,7 +80,7 @@ def processCommandline():
     OPTIONS, args = optionParser.parse_args()
 
 class Grinder:
-    def __init__(self, url, username, password, cert, systemid, parallel):
+    def __init__(self, url, username, password, cert, systemid, parallel, verbose):
         self.baseURL = url
         self.cert = open(cert, 'r').read()
         self.systemid = open(systemid, 'r').read()
@@ -91,6 +91,7 @@ class Grinder:
         self.parallelFetch = None
         self.skipProductList = []
         self.skipPackageList = []
+        self.verbose = verbose
 
     def getFetchAllPackages(self):
         return self.fetchAll
@@ -121,7 +122,8 @@ class Grinder:
 
     def activate(self):
         rhn = RHNTransport()    
-        satClient = getRhnApi(self.baseURL + "/SAT", verbose=verbose, transport=rhn)
+        satClient = getRhnApi(self.baseURL + "/SAT", 
+            verbose=self.verbose, transport=rhn)
         # First check if we are active
         active = False
         retval = satClient.authentication.check(self.systemid)
@@ -238,9 +240,6 @@ if _LIBPATH not in sys.path:
     sys.path.append(_LIBPATH)
 
 
-# Global instance of Grinder so we can issue a stop command 
-# in a signal handler for CTRL-C
-GRINDER = None
 #
 # Registering a signal handler on SIGINT to help in the 
 # parallel case, when we need a way to stop all the threads 
@@ -256,7 +255,7 @@ def handleKeyboardInterrupt(signalNumer, frame):
 
 signal.signal(signal.SIGINT, handleKeyboardInterrupt)
 
-if __name__ == '__main__':
+def main():
     LOG.debug("Main executed")
     processCommandline()
     allPackages = OPTIONS.all
@@ -271,7 +270,9 @@ if __name__ == '__main__':
     if not url:
         url = "https://satellite.rhn.redhat.com"
     setupLogging(verbose)
-    GRINDER = Grinder(url, username, password, cert, systemid, parallel)
+    global GRINDER 
+    GRINDER = Grinder(url, username, password, cert, 
+        systemid, parallel, verbose)
     GRINDER.setFetchAllPackages(allPackages)
     GRINDER.setSkipProductList(["rh-public", "k12ltsp", "education"])
     GRINDER.activate()
@@ -286,3 +287,8 @@ if __name__ == '__main__':
     for cl in args:
         GRINDER.sync(cl, verbose)
         GRINDER.createRepo(cl)
+
+if __name__ == "__main__":
+    main()
+
+

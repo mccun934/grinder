@@ -37,8 +37,6 @@ setup(
     # non-python scripts go here
     scripts = [
         'bin/grinder',
-        'bin/tar-fixup-stamp-comment.pl',
-        'bin/test-setup-specfile.pl',
     ],
 
     classifiers = [
