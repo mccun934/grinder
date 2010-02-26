@@ -229,16 +229,10 @@ class Grinder:
         LOG.info("createrepo on %s finished in %s seconds" % (dir, (endTime-startTime)))
         return status, out
 
-
-
-if __name__ != '__main__':
-    raise ImportError, "module cannot be imported"
-
 _LIBPATH = "/usr/share/"
 # add to the path if need be
 if _LIBPATH not in sys.path:
     sys.path.append(_LIBPATH)
-
 
 #
 # Registering a signal handler on SIGINT to help in the 
