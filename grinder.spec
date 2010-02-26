@@ -44,6 +44,6 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Fri Feb 25 2010 Mike McCune <mmccune@redhat.com> 0.0.1-1
+* Fri Feb 26 2010 Mike McCune <mmccune@redhat.com> 0.0.1-1
 - Initial creation of RPM/specfile 
 
