@@ -20,8 +20,7 @@ import xmlrpclib
 
 class RhnApi(xmlrpclib.ServerProxy): 
 
-        def __init__(self, uri, transport=None, encoding=None, verbose=0,
+    def __init__(self, uri, transport=None, encoding=None, verbose=0,
                  allow_none=0, use_datetime=0):
-            xmlrpclib.ServerProxy.__init__(self, uri, transport, 
-                encoding, verbose, allow_none, use_datetime)
-        
+        xmlrpclib.ServerProxy.__init__(self, uri, transport, 
+            encoding, verbose, allow_none)
