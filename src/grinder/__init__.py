@@ -14,3 +14,4 @@
 Code for synching stuff
 """
 
+_all__ = ['Grinder']
