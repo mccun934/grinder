@@ -36,7 +36,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-%doc README.mkd AUTHORS COPYING
+%doc README COPYING
 %{_bindir}/grinder
 %dir %{python_sitelib}/grinder
 %{python_sitelib}/grinder/*
