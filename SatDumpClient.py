@@ -16,7 +16,7 @@
 # in this software or its documentation.
 #
 import os
-import xmlrpclib
+from rhn_api import RhnApi
 import rpmUtils
 import logging
 
@@ -30,7 +30,7 @@ class SatDumpClient(object):
             transport = RHNTransport()
             transport.addProperty("X-RHN-Satellite-XML-Dump-Version", "3.4")
         self.transport = transport
-        self.client = xmlrpclib.ServerProxy(self.baseURL + "/SAT-DUMP/", 
+        self.client = RhnApi(self.baseURL + "/SAT-DUMP/", 
                 verbose=verbose, transport=self.transport)
 
     def getChannelFamilies(self, systemId):

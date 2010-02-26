@@ -24,3 +24,8 @@ class RhnApi(xmlrpclib.ServerProxy):
                  allow_none=0, use_datetime=0):
         xmlrpclib.ServerProxy.__init__(self, uri, transport, 
             encoding, verbose, allow_none)
+
+def getRhnApi(uri, transport=None, encoding=None, verbose=0,
+             allow_none=0, use_datetime=0):
+        return RhnApi(uri, transport, encoding, verbose, 
+            allow_none, use_datetime)

@@ -33,6 +33,7 @@ import signal
 from optparse import Option, OptionParser
 from xmlrpclib import Fault
 from rhn_api import RhnApi
+from rhn_api import getRhnApi
 from rhn_transport import RHNTransport
 from ParallelFetch import ParallelFetch
 from PackageFetch import PackageFetch
@@ -111,7 +112,7 @@ class Grinder:
 
     def deactivate(self):
         SATELLITE_URL = "%s/rpc/api" % (self.baseURL)
-        client = RhnApi(SATELLITE_URL, verbose=0)
+        client = getRhnApi(SATELLITE_URL, verbose=0)
         key = client.auth.login(self.username, self.password)
         retval = client.satellite.deactivateSatellite(self.systemid)
         print "retval from deactivation: %s"  % retval
@@ -120,7 +121,7 @@ class Grinder:
 
     def activate(self):
         rhn = RHNTransport()    
-        satClient = RhnApi(self.baseURL + "/SAT", verbose=verbose, transport=rhn)
+        satClient = getRhnApi(self.baseURL + "/SAT", verbose=verbose, transport=rhn)
         # First check if we are active
         active = False
         retval = satClient.authentication.check(self.systemid)
