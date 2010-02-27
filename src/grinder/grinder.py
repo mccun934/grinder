@@ -92,6 +92,7 @@ class Grinder:
         self.skipProductList = []
         self.skipPackageList = []
         self.verbose = verbose
+        self.killcount = 0
 
     def getFetchAllPackages(self):
         return self.fetchAll
@@ -180,9 +181,9 @@ class Grinder:
             if (d["label"] in self.skipProductList):
                 LOG.debug("Skipping display of %s because it is in product skip list" % (d["label"]))
                 continue
-            print("\nProduct Family: %s" % (d["label"]))
+            print("\nProduct : %s\n" % (d["label"]))
             for lbl in d["channel_labels"]:
-                print("\tChannel Label: %s" % (lbl))
+                print("    %s" % (lbl))
 
 
     def sync(self, channelLabel, verbose=0):
@@ -240,12 +241,15 @@ if _LIBPATH not in sys.path:
 # when someone CTRL-C's
 #
 def handleKeyboardInterrupt(signalNumer, frame):
-    LOG.error("SIGINT caught, stopping synchronization.")
-    GRINDER.stop()
-    # grinder's stop() call will wait for the child threads to realize 
-    # they need to be stopped.  then after that we need to stop completely
-    # otherwise the remainder of the __main__ will continue
-    sys.exit()
+    if (GRINDER.killcount > 0):
+        LOG.error("force quitting.")
+        sys.exit()
+    if (GRINDER.killcount == 0):
+        GRINDER.killcount = 1
+        msg = "SIGINT caught, will finish currently downloading" + \
+              " packages and exit. Press CTRL+C again to force quit"
+        LOG.error(msg)
+        GRINDER.stop()
 
 signal.signal(signal.SIGINT, handleKeyboardInterrupt)
 
@@ -280,7 +284,8 @@ def main():
         sys.exit(1)
     for cl in args:
         GRINDER.sync(cl, verbose)
-        GRINDER.createRepo(cl)
+        if (GRINDER.killcount == 0):
+            GRINDER.createRepo(cl)
 
 if __name__ == "__main__":
     main()

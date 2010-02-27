@@ -54,7 +54,6 @@ class ParallelFetch(object):
     def stop(self):
         for t in self.threads:
             t.stop()
-        self._waitForThreads()
         
     def _running(self):
         working = 0
