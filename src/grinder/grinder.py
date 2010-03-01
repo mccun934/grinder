@@ -136,6 +136,8 @@ class Grinder:
             LOG.debug("Not active")
             
         if (not active): 
+            if(not self.username or not self.password):
+                raise SystemNotActivatedException()
             SATELLITE_URL = "%s/rpc/api" % (self.baseURL)
             client = RhnApi(SATELLITE_URL, verbose=0)
             key = client.auth.login(self.username, self.password)

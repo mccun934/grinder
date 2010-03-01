@@ -20,3 +20,9 @@ class CantActivateException(GrinderException):
         return
     def __str__(self):
         return "Your system can not be activated to synch content from RHN Hosted"
+
+class SystemNotActivatedException(GrinderException):
+    def __init__(self):
+        return
+    def __str__(self):
+        return "Your system is not activated to sync content from RHN Hosted. Activate system with command: grinder -u username -p password"
