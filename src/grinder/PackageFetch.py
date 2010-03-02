@@ -152,8 +152,8 @@ class PackageFetch(object):
             conn.request("GET", fetchURL, headers=authMap)
             resp = conn.getresponse()
         if resp.status != 200:
-            LOG.critical("ERROR: fetching %s.  Our Authentication Info is : %s" \
-                % (fetchURL, authMap))
+            LOG.critical("ERROR: Response = %s fetching %s.  Our Authentication Info is : %s" \
+                % (resp.status, fetchURL, authMap))
             conn.close()
             return False
 
