@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.11
+Version: 0.0.12
 Release:        1%{?dist}
 Summary: A tool synching content
 
@@ -44,6 +44,12 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Mar 02 2010 Mike McCune <mmccune@redhat.com> 0.0.12-1
+- 569963 - Adding dependency on createrepo (skarmark@redhat.com)
+- adding test hook (mmccune)
+- Adding error handling for a system trying to run grinder without activating
+  (skarmark@redhat.com)
+
 * Fri Feb 26 2010 Mike McCune <mmccune@redhat.com> 0.0.11-1
 - Initial creation of RPM/specfile 
 
