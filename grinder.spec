@@ -13,7 +13,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildArch: noarch
 BuildRequires: python-setuptools
-Requires:       python >= 2.4
+Requires:      createrepo, python >= 2.4
 
 %description
 A tool for synching content from the Red Hat Network.
