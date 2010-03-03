@@ -33,7 +33,7 @@ setup(
     },
     packages = find_packages('src'),
     include_package_data = True,
-    data_files = [("etc", "etc/grinder.yml")],
+    data_files = [("../etc", "../etc/grinder.yml")],
     # non-python scripts go here
     scripts = [
         'bin/grinder',
