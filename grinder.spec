@@ -41,6 +41,7 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{python_sitelib}/grinder
 %{python_sitelib}/grinder/*
 %{python_sitelib}/grinder-*.egg-info
+%config(noreplace) %{_sysconfdir}/grinder/grinder.yml
 
 
 %changelog
