@@ -71,6 +71,7 @@ def processCommandline():
         Option('-p', '--password', action='store', help='RHN Passowrd'),
         Option('-P', '--parallel', action='store', 
             help='Number of threads to fetch in parallel.'),
+        Option('-r', '--removeold', action='store_true', help='Remove older rpms', default=False),
         Option('-s', '--systemid', action='store', help='System ID'),
         Option('-u', '--username', action='store', help='RHN User Account'),
         Option('-U', '--url', action='store', help='Red Hat Server URL'),
@@ -95,6 +96,13 @@ class Grinder:
         self.skipPackageList = []
         self.verbose = verbose
         self.killcount = 0
+        self.removeOldPackages = False
+
+    def setRemoveOldPackages(self, value):
+        self.removeOldPackages = value
+
+    def getRemoveOldPackages(self):
+        return self.removeOldPackages
 
     def getFetchAllPackages(self):
         return self.fetchAll
@@ -215,7 +223,37 @@ class Grinder:
         endTime = time.time()
         LOG.info("Sync'd <%s> %s packages, %s errors, completed in %s seconds" \
                 % (channelLabel, len(fetched), len(errors), (endTime-startTime)))
+        if self.removeOldPackages:
+            self.runRemoveOldPackages(savePath)
         return fetched, errors
+
+    def runRemoveOldPackages(self, path):
+        """ Will scan input directory and remove all but the latest rpm version """
+        rpms = {}
+        import glob
+        # Get list of *.rpms in directory
+        rpmFiles = glob.glob(path+"/*.rpm")
+        for filename in rpmFiles:
+            # Split into NEVRA
+            name, version, release, epoch, arch = rpmUtils.miscutils.splitFilename(filename)
+            key = name + "." + arch
+            if not rpms.has_key(key):
+                rpms[name+"."+arch] = (name, version, release, epoch, arch, filename)
+            else:
+                # Check to see if current rpm is newer than we have in the dict
+                name2, version2, release2, epoch2, arch2, filename2 = rpms[key]
+                cmpVal = rpmUtils.miscutils.compareEVR(
+                    (epoch, version, release), 
+                    (epoch2, version2, release2))
+                if cmpVal == 1:
+                    LOG.debug("Remove %s because it's older than %s" % (filename2, filename))
+                    os.remove(filename2)
+                    rpms[name+"."+arch] = (name, version, release, epoch, arch, filename)
+                else:
+                    LOG.debug("Remove %s because it's older than %s" % (filename, filename2))
+                    os.remove(filename)
+
+
 
     def createRepo(self, dir):
         startTime = time.time()
@@ -321,7 +359,7 @@ def main():
     elif configInfo.has_key("parallel"):
         parallel = configInfo["parallel"]
     else:
-        parallel = None
+        parallel = 5
     LOG.debug("parallel = %s" % (parallel))
 
     if OPTIONS.url:
@@ -331,6 +369,19 @@ def main():
     else:
         url = "https://satellite.rhn.redhat.com"
     LOG.debug("url = %s" % (url))
+
+    if OPTIONS.removeold:
+        removeold = OPTIONS.removeold
+    elif configInfo.has_key("removeold"):
+        removeold = configInfo["removeold"]
+    else:
+        removeold = False
+
+    if allPackages and removeold:
+        print "Conflicting options specified.  Fetch ALL packages AND remove older packages."
+        print "This combination of options is not supported."
+        print "Please remove one of these options and re-try"
+        sys.exit(1)
 
     if OPTIONS.basepath:
         basepath = OPTIONS.basepath
@@ -356,6 +407,7 @@ def main():
     GRINDER = Grinder(url, username, password, cert, 
         systemid, parallel, verbose)
     GRINDER.setFetchAllPackages(allPackages)
+    GRINDER.setRemoveOldPackages(removeold)
     GRINDER.setSkipProductList(["rh-public", "k12ltsp", "education"])
     GRINDER.activate()
     if (listchannels):
@@ -365,6 +417,9 @@ def main():
     for b in badChannels:
         print "'%s' can not be found as a channel available to download" % (b)
     if len(badChannels) > 0:
+        sys.exit(1)
+    if len(channelLabels.keys()) < 1:
+        print "No channels specified to sync"
         sys.exit(1)
     for cl in channelLabels.keys():
         dirPath = os.path.join(basepath, channelLabels[cl])
