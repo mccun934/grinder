@@ -224,6 +224,7 @@ class Grinder:
         LOG.info("Sync'd <%s> %s packages, %s errors, completed in %s seconds" \
                 % (channelLabel, len(fetched), len(errors), (endTime-startTime)))
         if self.removeOldPackages:
+            LOG.info("Remove old packages from %s" % (savePath))
             self.runRemoveOldPackages(savePath)
         return fetched, errors
 
