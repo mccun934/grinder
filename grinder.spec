@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.14
+Version: 0.0.15
 Release:        1%{?dist}
 Summary: A tool synching content
 
@@ -45,6 +45,15 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Mar 03 2010 Mike McCune <mmccune@redhat.com> 0.0.15-1
+- update dir name for /etc/grinder (jmatthews@virtguest-rhq-server.localdomain)
+- add PyYAML to grinder.spec (jmatthews@virtguest-rhq-server.localdomain)
+- add yaml configuration file to setuptools (jmatthews@virtguest-rhq-
+  server.localdomain)
+- adding yaml configuration file/parsing to grinder (jmatthews@virtguest-rhq-
+  server.localdomain)
+- fixing paths and moving a bit forward (mmccune@redhat.com)
+
 * Tue Mar 02 2010 Mike McCune <mmccune@redhat.com> 0.0.14-1
 - 569963 - Adding dependency on createrepo (skarmark@redhat.com)
 - adding test hook (mmccune)
