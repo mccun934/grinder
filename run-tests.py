@@ -4,7 +4,7 @@ __requires__ = 'nose'
 import sys
 from pkg_resources import load_entry_point
 
-sys.path.append("src/grinder")
+sys.path.append("src/")
 
 sys.exit(
    load_entry_point('nose', 'console_scripts', 'nosetests')()
