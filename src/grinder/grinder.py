@@ -15,6 +15,7 @@
 # granted to use or replicate Red Hat trademarks that are incorporated
 # in this software or its documentation.
 #
+import os
 import sys
 import pdb
 
@@ -62,18 +63,19 @@ def processCommandline():
     optionsTable = [
         Option('-a', '--all', action='store_true', 
             help='Fetch ALL packages from a channel, not just latest'),
-        Option('-c', '--cert', action='store', help='Entitlement Certificate',
-            default='/etc/sysconfig/rhn/entitlement-cert.xml'),
-        Option('-L', '--listchannels', action='store_true', help='List all channels we have access to synchronize', default=""),
+        Option('-b', '--basepath', action='store', help='Path RPMs are stored'),
+        Option('-c', '--cert', action='store', help='Entitlement Certificate'),
+        Option('-C', '--config', action='store', help='Configuration file',
+            default='/etc/grinder/grinder.yml'),
+        Option('-L', '--listchannels', action='store_true', help='List all channels we have access to synchronize'),
         Option('-p', '--password', action='store', help='RHN Passowrd'),
         Option('-P', '--parallel', action='store', 
-            help='Number of threads to fetch in parallel.  Defaults to 1', default=1),
-        Option('-s', '--systemid', action='store', help='System ID',
-            default='/etc/sysconfig/rhn/systemid'),
+            help='Number of threads to fetch in parallel.'),
+        Option('-s', '--systemid', action='store', help='System ID'),
         Option('-u', '--username', action='store', help='RHN User Account'),
         Option('-U', '--url', action='store', help='Red Hat Server URL'),
         Option('-v', '--verbose',  action='store_true', help='verbose output', default=False),
-
+    
     ]
     optionParser = OptionParser(option_list=optionsTable, usage="%prog [OPTION] channel_label1 channel_label2, etc")
     global OPTIONS, args
@@ -188,7 +190,7 @@ class Grinder:
                 print("    %s" % (lbl))
 
 
-    def sync(self, channelLabel, verbose=0):
+    def sync(self, channelLabel, savePath=None, verbose=0):
         startTime = time.time()
         if channelLabel == "":
             LOG.critical("No channel label specified to sync, abort sync.")
@@ -206,7 +208,7 @@ class Grinder:
         numThreads = int(self.parallel)
         LOG.info("Running in parallel fetch mode with %s threads" % (numThreads))
         self.parallelFetch = ParallelFetch(self.systemid, self.baseURL, 
-                channelLabel, numThreads=numThreads)
+                channelLabel, numThreads=numThreads, savePath=savePath)
         self.parallelFetch.addPkgList(pkgInfo.values())
         self.parallelFetch.start()
         fetched, errors = self.parallelFetch.waitForFinish()
@@ -258,18 +260,98 @@ signal.signal(signal.SIGINT, handleKeyboardInterrupt)
 def main():
     LOG.debug("Main executed")
     processCommandline()
-    allPackages = OPTIONS.all
-    username = OPTIONS.username
-    password = OPTIONS.password
-    cert = OPTIONS.cert
-    systemid = OPTIONS.systemid
-    parallel = OPTIONS.parallel
-    listchannels = OPTIONS.listchannels
     verbose = OPTIONS.verbose
-    url = OPTIONS.url
-    if not url:
-        url = "https://satellite.rhn.redhat.com"
     setupLogging(verbose)
+    
+    configFile = OPTIONS.config
+    configInfo = {}
+    if os.path.isfile(configFile):
+        try:
+            import yaml
+            raw = open(configFile).read()
+            configInfo = yaml.load(raw)
+        except:
+            LOG.info("Unable to parse config file: %s. Using command line options only." % (configFile))
+            configInfo = {}
+
+    if OPTIONS.all:
+        allPackages = OPTIONS.all
+    elif configInfo.has_key("all"):
+        allPackages = configInfo["all"]
+    else:
+        allPackages = False
+    LOG.debug("allPackages = %s" % (allPackages))
+
+    if OPTIONS.username:
+        username = OPTIONS.username
+    elif configInfo.has_key("username"):
+        username = configInfo["username"]
+    else:
+        username = None
+    LOG.debug("username = %s" % (username))
+
+    if OPTIONS.password:
+        password = OPTIONS.password
+        LOG.debug("password = from command line")
+    elif configInfo.has_key("password"):
+        password = configInfo["password"]
+        LOG.debug("password = from config file")
+    else:
+        password = None
+        LOG.debug("password never specified")
+
+    if OPTIONS.cert:
+        cert = OPTIONS.cert
+    elif configInfo.has_key("cert"):
+        cert = configInfo["cert"]
+    else:
+        cert = "/etc/sysconfig/rhn/entitlement-cert.xml"
+    LOG.debug("cert = %s" % (cert))
+
+    if OPTIONS.systemid:
+        systemid = OPTIONS.systemid
+    elif configInfo.has_key("systemid"):
+        systemid = configInfo["systemid"]
+    else:
+        systemid = "/etc/sysconfig/rhn/systemid"
+    LOG.debug("systemid = %s" % (systemid))
+
+    if OPTIONS.parallel:
+        parallel = OPTIONS.parallel
+    elif configInfo.has_key("parallel"):
+        parallel = configInfo["parallel"]
+    else:
+        parallel = None
+    LOG.debug("parallel = %s" % (parallel))
+
+    if OPTIONS.url:
+        url = OPTIONS.url
+    elif configInfo.has_key("url"):
+        url = configInfo["url"]
+    else:
+        url = "https://satellite.rhn.redhat.com"
+    LOG.debug("url = %s" % (url))
+
+    if OPTIONS.basepath:
+        basepath = OPTIONS.basepath
+    elif configInfo.has_key("basepath"):
+        basepath = configInfo["basepath"]
+    else:
+        basepath = "./"
+    LOG.debug("basepath = %s" % (basepath))
+
+    channelLabels = {}
+    if configInfo.has_key("channels"):
+        channels = configInfo["channels"]
+        for c in channels:
+            channelLabels[c['label']] = c['relpath']
+
+    # Add extra arguments from CLI to channelLabels
+    # extra arguments will default to a save path of their channel label
+    for a in args:
+        channelLabels[a] = a
+
+    listchannels = OPTIONS.listchannels
     global GRINDER 
     GRINDER = Grinder(url, username, password, cert, 
         systemid, parallel, verbose)
@@ -279,15 +361,17 @@ def main():
     if (listchannels):
         GRINDER.displayListOfChannels()
         sys.exit(0)
-    badChannels = GRINDER.checkChannels(args)
+    badChannels = GRINDER.checkChannels(channelLabels.keys())
     for b in badChannels:
         print "'%s' can not be found as a channel available to download" % (b)
     if len(badChannels) > 0:
         sys.exit(1)
-    for cl in args:
-        GRINDER.sync(cl, verbose)
+    for cl in channelLabels.keys():
+        dirPath = os.path.join(basepath, channelLabels[cl])
+        LOG.info("Syncing '%s' to '%s'" % (cl, dirPath))
+        GRINDER.sync(cl, savePath=dirPath, verbose=verbose)
         if (GRINDER.killcount == 0):
-            GRINDER.createRepo(cl)
+            GRINDER.createRepo(dirPath)
 
 if __name__ == "__main__":
     main()

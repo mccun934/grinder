@@ -26,7 +26,7 @@ from PackageFetch import PackageFetch
 LOG = logging.getLogger("ParallelFetch")
 
 class ParallelFetch(object):
-    def __init__(self, systemId, baseURL, channelName, numThreads=3):
+    def __init__(self, systemId, baseURL, channelName, numThreads=3, savePath=None):
         self.systemId = systemId
         self.baseURL = baseURL
         self.channelName = channelName
@@ -38,6 +38,7 @@ class ParallelFetch(object):
         for i in range(self.numThreads):
             wt = WorkerThread(self.systemId, self.baseURL, self.channelName, self.toSyncQ, 
                     self.syncCompleteQ, self.syncErrorQ)
+            wt.setSavePath(savePath)
             self.threads.append(wt)
 
     def addPkg(self, pkg):
@@ -100,7 +101,7 @@ class WorkerThread(PackageFetch, Thread):
         self.syncErrorQ = syncErrorQ
         self.authMap = None
         self._stop = threading.Event()
-    
+
     def stop(self):
         self._stop.set()
 

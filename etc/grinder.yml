@@ -1,0 +1,42 @@
+#YAML Configuration file for 'grinder'
+
+# URL to use for receiving Red Hat content
+url: http://satellite.rhn.redhat.com
+# Satellite certificate needed for activation
+cert: /etc/sysconfig/rhn/entitlement-cert.xml
+
+# Systemid, needs to be a registered system with Red Hat Network
+systemid: /etc/sysconfig/rhn/systemid
+# Username to use for satellite activation
+username: changeme
+# Password to use for satellite activation
+password: changeme
+
+# True/False for fetching all packages, if False only fetch latest packages
+all: False
+
+# Integer to control number of threads to use for fetching packages
+parallel: 20
+
+# True/False to flag if we should remove older rpms
+removeold: True
+
+# Basepath to keep rpms
+basepath: /mnt/packages
+
+# Below is a list of channels for us to sync
+channels:
+    # channel label (this is the string returned from "-L" channel labels
+-   label: rhel-i386-server-vt-5
+    # path relative to "basepath" to store rpms
+    relpath: rhel/server/vt/5/i386
+
+-   label: rhel-x86_64-server-vt-5
+    relpath: rhel/server/vt/5/x86_64
+
+-   label: rhn-tools-rhel-i386-server-5
+    relpath: rhel/server/rhntools/5/i386
+
+-   label: rhn-tools-rhel-x86_64-server-5
+    relpath: rhel/server/rhntools/5/x86_64
+

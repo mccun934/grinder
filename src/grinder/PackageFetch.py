@@ -31,11 +31,15 @@ LOG = logging.getLogger("PackageFetch")
 
 
 class PackageFetch(object):
-    def __init__(self, systemId, baseURL, channelLabel):
+    def __init__(self, systemId, baseURL, channelLabel, savePath=None):
         self.authMap = None
         self.systemId = systemId
         self.baseURL = baseURL
         self.channelLabel = channelLabel
+        self.savePath = savePath
+
+    def setSavePath(self, path):
+        self.savePath = path
 
     #
     # TODO:  Consider making this a static method so all threads/instances will
@@ -88,7 +92,7 @@ class PackageFetch(object):
         """
         if not os.path.isdir(dirPath):
             LOG.info("Creating directory: %s" % dirPath)
-            os.mkdir(dirPath)
+            os.makedirs(dirPath)
         filePath = os.path.join(dirPath, rpmName)
         if os.path.exists(filePath) and self.verifyFile(filePath, size, md5sum):
             LOG.debug("%s exists with correct size and md5sum, no need to fetch." % (filePath))
@@ -124,7 +128,7 @@ class PackageFetch(object):
             return False
         return True
 
-    def fetchRPM(self, pkg, dirPath=None, retryTimes=2):
+    def fetchRPM(self, pkg, retryTimes=2):
         """
         Input:
             pkg = dict containing 'fetch_name', 'package_size', 'md5'
@@ -159,8 +163,9 @@ class PackageFetch(object):
 
         size = int(pkg['package_size'])
         md5sum = pkg['md5sum']
-        d = dirPath
-        if d == None:
+        if self.savePath:
+            d = self.savePath
+        else:
             d = self.channelLabel
         #
         # Incase of a network glitch or issue with RHN, retry the rpm fetch
@@ -170,7 +175,7 @@ class PackageFetch(object):
         if not status and retryTimes > 0:
             retryTimes -= 1
             LOG.warn("Retrying fetch of: %s with %s retry attempts left." % (nevra, retryTimes))
-            return self.fetchRPM(pkg, dirPath, retryTimes)
+            return self.fetchRPM(pkg, retryTimes)
         return status
 
 if __name__ == "__main__":
@@ -183,7 +188,8 @@ if __name__ == "__main__":
     pkg['fetch_name'] = "Virtualization-es-ES-5.2-9:.noarch.rpm"
     pkg['package_size'] = "1731195"
     pkg['md5sum'] = "91b0f20aeeda88ddae4959797003a173" 
-    if pf.fetchRPM(pkg, dirPath="./test123"):
+    pf.setSavePath("./test123")
+    if pf.fetchRPM(pkg):
         print "Package fetch was successful"
     else:
         print "Error with package fetch"
