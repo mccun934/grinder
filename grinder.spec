@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.16
+Version: 0.0.17
 Release:        1%{?dist}
 Summary: A tool synching content
 
@@ -45,6 +45,12 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Mar 04 2010 Mike McCune <mmccune@redhat.com> 0.0.17-1
+- add log statement to show if/where removeold package is working from
+  (jmatthews@virtguest-rhq-server.localdomain)
+- add option to remove old RPMs from disk (jmatthews@virtguest-rhq-
+  server.localdomain)
+
 * Wed Mar 03 2010 Mike McCune <mmccune@redhat.com> 0.0.16-1
 - update dir name for /etc/grinder (jmatthews@virtguest-rhq-server.localdomain)
 - add PyYAML to grinder.spec (jmatthews@virtguest-rhq-server.localdomain)
