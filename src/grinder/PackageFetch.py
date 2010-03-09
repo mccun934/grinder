@@ -92,7 +92,14 @@ class PackageFetch(object):
         """
         if not os.path.isdir(dirPath):
             LOG.info("Creating directory: %s" % dirPath)
-            os.makedirs(dirPath)
+            try:
+                os.makedirs(dirPath)
+            except OSError, e:
+                # Another thread may have created the dir since we checked,
+                # if that's the case we'll see errno=17, so ignore that exception
+                if e.errno != 17:
+                    LOG.critical(e)
+                    raise e
         filePath = os.path.join(dirPath, rpmName)
         if os.path.exists(filePath) and self.verifyFile(filePath, size, md5sum):
             LOG.debug("%s exists with correct size and md5sum, no need to fetch." % (filePath))
