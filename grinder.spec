@@ -2,7 +2,7 @@
 
 Name: grinder
 Version: 0.0.17
-Release:        1%{?dist}
+Release: 1%{?dist}
 Summary: A tool synching content
 
 Group: Development/Tools
