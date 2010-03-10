@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.17
+Version: 0.0.18
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -45,6 +45,11 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Mar 10 2010 Mike McCune <mmccune@redhat.com> 0.0.18-1
+- fixing spacing (mmccune@redhat.com)
+- 571452 - ParallelFetch create channel directory should be silent if the
+  directory already exists (jwmatthews@gmail.com)
+
 * Thu Mar 04 2010 Mike McCune <mmccune@redhat.com> 0.0.17-1
 - add log statement to show if/where removeold package is working from
   (jmatthews@virtguest-rhq-server.localdomain)
