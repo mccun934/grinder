@@ -482,7 +482,7 @@ def main():
         dirPath = os.path.join(basepath, channelLabels[cl])
         LOG.info("Syncing '%s' to '%s'" % (cl, dirPath))
         GRINDER.sync(cl, savePath=dirPath, verbose=verbose)
-        Log.info("Sync completed, running createrepo")
+        LOG.info("Sync completed, running createrepo")
         if (GRINDER.killcount == 0):
             GRINDER.createRepo(dirPath)
 
