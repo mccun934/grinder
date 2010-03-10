@@ -21,6 +21,12 @@ parallel: 20
 # True/False to flag if we should remove older rpms
 removeold: True
 
+# Integer to specify how many old packages to keep.
+# Only used if 'removeold' is set to True
+#   Example: if set to '0' we will only keep the latest package
+#            if set to '2' we will keep the latest package and 2 prior releases
+num_old_pkgs_keep: 2
+
 # Basepath to keep rpms
 basepath: /mnt/packages
 
@@ -33,10 +39,3 @@ channels:
 
 -   label: rhel-x86_64-server-vt-5
     relpath: rhel/server/vt/5/x86_64
-
--   label: rhn-tools-rhel-i386-server-5
-    relpath: rhel/server/rhntools/5/i386
-
--   label: rhn-tools-rhel-x86_64-server-5
-    relpath: rhel/server/rhntools/5/x86_64
-
