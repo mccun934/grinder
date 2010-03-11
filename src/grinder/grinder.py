@@ -365,6 +365,9 @@ def main():
             LOG.critical("Exception: %s" % (e))
             LOG.critical("Unable to parse config file: %s. Using command line options only." % (configFile))
             configInfo = {}
+    else:
+        LOG.info("Unable to read configuration file: %s" % (configFile))
+        LOG.info("Will run with command line options only.")
 
     if OPTIONS.all:
         allPackages = OPTIONS.all
