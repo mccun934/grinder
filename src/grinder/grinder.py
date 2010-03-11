@@ -297,7 +297,6 @@ class Grinder:
         rpms = self.getSortedListOfSyncedRPMs(path)
         for key in rpms:
             values = rpms[key]
-            LOG.info("len(values) = %s key = %s" % (len(values), key))
             if len(values) > numOld:
                 # Remember to keep the latest package
                 for index in range(1+numOld, len(values)):
@@ -358,8 +357,13 @@ def main():
             import yaml
             raw = open(configFile).read()
             configInfo = yaml.load(raw)
-        except:
-            LOG.info("Unable to parse config file: %s. Using command line options only." % (configFile))
+        except ImportError:
+            LOG.critical("Unable to load python module 'yaml'.")
+            LOG.critical("Unable to parse config file: %s. Using command line options only." % (configFile))
+            configInfo = {}
+        except Exception, e:
+            LOG.critical("Exception: %s" % (e))
+            LOG.critical("Unable to parse config file: %s. Using command line options only." % (configFile))
             configInfo = {}
 
     if OPTIONS.all:
