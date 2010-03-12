@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.19
+Version: 0.0.20
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -45,7 +45,7 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Thu Mar 11 2010 Mike McCune <mmccune@redhat.com> 0.0.19-1
+* Thu Mar 11 2010 Mike McCune <mmccune@redhat.com> 0.0.20-1
 - 572565 - Running grinder gives a Unable to parse config file message
   (jwmatthews@gmail.com)
 - updating comment in config for how many previous packages to store
