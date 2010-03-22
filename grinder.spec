@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.20
+Version: 0.0.21
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -45,6 +45,12 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Mar 22 2010 Mike McCune <mmccune@redhat.com> 0.0.21-1
+- 572663 - grinder command line arg "-P one" should throw non int exception for
+  parallel (jwmatthews@gmail.com)
+- 572657 - please remove username password from grinder config
+  (jwmatthews@gmail.com)
+
 * Thu Mar 11 2010 Mike McCune <mmccune@redhat.com> 0.0.20-1
 - 572565 - Running grinder gives a Unable to parse config file message
   (jwmatthews@gmail.com)
