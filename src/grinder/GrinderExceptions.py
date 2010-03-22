@@ -26,3 +26,11 @@ class SystemNotActivatedException(GrinderException):
         return
     def __str__(self):
         return "Your system is not activated to sync content from RHN Hosted. Activate system with command: grinder -u username -p password"
+
+class GetRequestException(Exception):
+    def __init__(self, url, code):
+        self.url = url
+        self.code = code
+    def __str__(self):
+        return "%s : %s" % (self.url, self.code)
+

@@ -27,6 +27,8 @@ except:
 
 import logging
 
+from RHNComm import RHNComm
+
 LOG = logging.getLogger("PackageFetch")
 
 
@@ -37,38 +39,16 @@ class PackageFetch(object):
         self.baseURL = baseURL
         self.channelLabel = channelLabel
         self.savePath = savePath
+        self.rhnComm = RHNComm(baseURL, self.systemId)
 
     def setSavePath(self, path):
         self.savePath = path
 
-    #
-    # TODO:  Consider making this a static method so all threads/instances will
-    # share same cached value.
-    #
-    def login(self, refresh=False):
-        """
-        Input: refresh  default value is False
-          if refresh is True we will force a login call and refresh the 
-          cached authentication map
-        Output: dict of authentication credentials to be placed in header 
-          for future package fetch 'GET' calls
-        Note:
-          The authentication data returned is cached, it is only updated on the
-          first call, or when "refresh=True" is passed.
-        Background:
-            If we make too many login calls to RHN we could make the referring
-            systemid be flagged as abusive.  Current metrics allow ~100 logins a day
-        """
-        if self.authMap and not refresh:
-            return self.authMap
-        client = xmlrpclib.Server(self.baseURL+"/SAT", verbose=0)
-        self.authMap = client.authentication.login(self.systemId)
-        self.authMap["X-RHN-Satellite-XML-Dump-Version"] = "3.5"
-        return self.authMap
-
     def getFetchURL(self, channelLabel, fetchName):
         return "/SAT/$RHN/" + channelLabel + "/getPackage/" + fetchName;
 
+    def login(self, refresh=False):
+        return self.rhnComm.login(refresh)
 
     def verifyFile(self, filePath, size, md5sum):
         statinfo = os.stat(filePath)

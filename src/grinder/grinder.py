@@ -42,6 +42,7 @@ from ParallelFetch import ParallelFetch
 from PackageFetch import PackageFetch
 from GrinderExceptions import *
 from SatDumpClient import SatDumpClient
+from RHNComm import RHNComm
 
 GRINDER_LOG_FILENAME = "./log-grinder.out"
 LOG = logging.getLogger("grinder")
@@ -100,6 +101,7 @@ class Grinder:
         self.killcount = 0
         self.removeOldPackages = False
         self.numOldPkgsKeep = 1
+        self.rhnComm = RHNComm(url, self.systemid)
 
     def setRemoveOldPackages(self, value):
         self.removeOldPackages = value
@@ -230,6 +232,8 @@ class Grinder:
         self.parallelFetch.addPkgList(pkgInfo.values())
         self.parallelFetch.start()
         fetched, errors = self.parallelFetch.waitForFinish()
+        LOG.debug("Attempting to fetch comps.xml info from RHN")
+        self.fetchCompsXML(savePath, channelLabel)
         endTime = time.time()
         LOG.info("Sync'd <%s> %s packages, %s errors, completed in %s seconds" \
                 % (channelLabel, len(fetched), len(errors), (endTime-startTime)))
@@ -239,6 +243,18 @@ class Grinder:
             self.runRemoveOldPackages(savePath)
         return fetched, errors
     
+    def fetchCompsXML(self, savePath, channelLabel):
+        ###
+        # Fetch comps.xml, used by createrepo for "groups" info
+        ###
+        compsxml = self.rhnComm.getRepodata(channelLabel, "comps.xml")
+        if not savePath:
+            savePath = channelLabel
+        f = open(os.path.join(savePath, "comps.xml"), "w")
+        f.write(compsxml)
+        f.close()
+        
+
     def getNEVRA(self, filename):
         fd = os.open(filename, os.O_RDONLY)
         ts = rpm.TransactionSet()
@@ -306,7 +322,7 @@ class Grinder:
 
     def createRepo(self, dir):
         startTime = time.time()
-        status, out = commands.getstatusoutput('createrepo --update %s' % dir)
+        status, out = commands.getstatusoutput('createrepo --update -g comps.xml %s' % (dir))
 
         class CreateRepoError:
             def __init__(self, output):
