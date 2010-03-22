@@ -7,10 +7,6 @@ cert: /etc/sysconfig/rhn/entitlement-cert.xml
 
 # Systemid, needs to be a registered system with Red Hat Network
 systemid: /etc/sysconfig/rhn/systemid
-# Username to use for satellite activation
-username: changeme
-# Password to use for satellite activation
-password: changeme
 
 # True/False for fetching all packages, if False only fetch latest packages
 all: False

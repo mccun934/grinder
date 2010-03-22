@@ -379,8 +379,6 @@ def main():
 
     if OPTIONS.username:
         username = OPTIONS.username
-    elif configInfo.has_key("username"):
-        username = configInfo["username"]
     else:
         username = None
     LOG.debug("username = %s" % (username))
@@ -388,9 +386,6 @@ def main():
     if OPTIONS.password:
         password = OPTIONS.password
         LOG.debug("password = from command line")
-    elif configInfo.has_key("password"):
-        password = configInfo["password"]
-        LOG.debug("password = from config file")
     else:
         password = None
         LOG.debug("password never specified")
