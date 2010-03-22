@@ -407,9 +407,9 @@ def main():
     LOG.debug("systemid = %s" % (systemid))
 
     if OPTIONS.parallel:
-        parallel = OPTIONS.parallel
+        parallel = int(OPTIONS.parallel)
     elif configInfo.has_key("parallel"):
-        parallel = configInfo["parallel"]
+        parallel = int(configInfo["parallel"])
     else:
         parallel = 5
     LOG.debug("parallel = %s" % (parallel))
