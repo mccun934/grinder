@@ -243,7 +243,7 @@ class Grinder:
             LOG.info("Remove old packages from %s" % (savePath))
 
             self.runRemoveOldPackages(savePath)
-        return fetched, errors
+        return report
     
     def fetchCompsXML(self, savePath, channelLabel):
         ###
@@ -501,7 +501,7 @@ def main():
     for cl in channelLabels.keys():
         dirPath = os.path.join(basepath, channelLabels[cl])
         LOG.info("Syncing '%s' to '%s'" % (cl, dirPath))
-        fetched, errors = GRINDER.sync(cl, savePath=dirPath, verbose=verbose)
+        report = GRINDER.sync(cl, savePath=dirPath, verbose=verbose)
         
         LOG.info("Sync completed, running createrepo")
         if (GRINDER.killcount == 0):
