@@ -25,6 +25,12 @@ from PackageFetch import PackageFetch
 
 LOG = logging.getLogger("ParallelFetch")
 
+class SyncReport:
+    def __init__(self):
+        self.successes = 0
+        self.downloads = 0
+        self.errors = 0
+
 class ParallelFetch(object):
     def __init__(self, systemId, baseURL, channelName, numThreads=3, savePath=None):
         self.systemId = systemId
@@ -87,9 +93,19 @@ class ParallelFetch(object):
         while not self.syncErrorQ.empty():
             p = self.syncErrorQ.get_nowait()
             errorList.append(p)
-        LOG.info("ParallelFetch: %s package successfully fetched, %s packages had errors" % (len(successList), len(errorList)))
-        return (successList, errorList)
-
+        report = SyncReport()
+        for t in self.threads:
+            report.successes = report.successes + t.syncStatusDict[PackageFetch.STATUS_DOWNLOADED]
+            report.successes = report.successes + t.syncStatusDict[PackageFetch.STATUS_NOOP]
+            report.downloads = report.downloads + t.syncStatusDict[PackageFetch.STATUS_DOWNLOADED]
+            report.errors = report.errors + t.syncStatusDict[PackageFetch.STATUS_ERROR]
+            report.errors = report.errors + t.syncStatusDict[PackageFetch.STATUS_MD5_MISSMATCH]
+            report.errors = report.errors + t.syncStatusDict[PackageFetch.STATUS_SIZE_MISSMATCH]
+            
+        LOG.info("ParallelFetch: %s packages successfully processed, %s downloaded, %s packages had errors" %
+            (report.successes, report.downloads, report.errors))
+        
+        return report
 
 class WorkerThread(PackageFetch, Thread):
 
@@ -100,6 +116,12 @@ class WorkerThread(PackageFetch, Thread):
         self.syncCompleteQ = syncCompleteQ
         self.syncErrorQ = syncErrorQ
         self.authMap = None
+        self.syncStatusDict = dict()
+        self.syncStatusDict[PackageFetch.STATUS_NOOP] = 0
+        self.syncStatusDict[PackageFetch.STATUS_DOWNLOADED] = 0
+        self.syncStatusDict[PackageFetch.STATUS_SIZE_MISSMATCH] = 0
+        self.syncStatusDict[PackageFetch.STATUS_MD5_MISSMATCH] = 0
+        self.syncStatusDict[PackageFetch.STATUS_ERROR] = 0
         self._stop = threading.Event()
 
     def stop(self):
@@ -111,7 +133,12 @@ class WorkerThread(PackageFetch, Thread):
             LOG.info("%s packages left on Queue" % (self.toSyncQ.qsize()))
             try:
                 pkg = self.toSyncQ.get_nowait()
-                if self.fetchRPM(pkg):
+                status = self.fetchRPM(pkg)
+                if status in self.syncStatusDict:
+                    self.syncStatusDict[status] = self.syncStatusDict[status] + 1
+                else:
+                    self.syncStatusDict[status] = 1
+                if status != PackageFetch.STATUS_ERROR:
                     self.syncCompleteQ.put(pkg)
                 else:
                     self.syncErrorQ.put(pkg)

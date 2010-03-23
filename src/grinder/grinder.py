@@ -32,6 +32,8 @@ except:
     import md5
 import logging
 import signal
+import ParallelFetch
+
 from optparse import Option, OptionParser
 from xmlrpclib import Fault
 
@@ -231,12 +233,12 @@ class Grinder:
                 channelLabel, numThreads=numThreads, savePath=savePath)
         self.parallelFetch.addPkgList(pkgInfo.values())
         self.parallelFetch.start()
-        fetched, errors = self.parallelFetch.waitForFinish()
+        report = self.parallelFetch.waitForFinish()
         LOG.debug("Attempting to fetch comps.xml info from RHN")
         self.fetchCompsXML(savePath, channelLabel)
         endTime = time.time()
-        LOG.info("Sync'd <%s> %s packages, %s errors, completed in %s seconds" \
-                % (channelLabel, len(fetched), len(errors), (endTime-startTime)))
+        LOG.info("Proccessed'd <%s> %s packages, %s errors, completed in %s seconds" \
+                % (channelLabel, report.successes, report.errors, (endTime-startTime)))
         if self.removeOldPackages:
             LOG.info("Remove old packages from %s" % (savePath))
 
@@ -499,7 +501,8 @@ def main():
     for cl in channelLabels.keys():
         dirPath = os.path.join(basepath, channelLabels[cl])
         LOG.info("Syncing '%s' to '%s'" % (cl, dirPath))
-        GRINDER.sync(cl, savePath=dirPath, verbose=verbose)
+        fetched, errors = GRINDER.sync(cl, savePath=dirPath, verbose=verbose)
+        
         LOG.info("Sync completed, running createrepo")
         if (GRINDER.killcount == 0):
             GRINDER.createRepo(dirPath)

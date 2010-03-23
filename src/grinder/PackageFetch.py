@@ -33,6 +33,12 @@ LOG = logging.getLogger("PackageFetch")
 
 
 class PackageFetch(object):
+    STATUS_NOOP = 'noop'
+    STATUS_DOWNLOADED = 'downloaded'
+    STATUS_SIZE_MISSMATCH = 'size_missmatch'
+    STATUS_MD5_MISSMATCH = 'md5_missmatch'
+    STATUS_ERROR = 'error'
+    
     def __init__(self, systemId, baseURL, channelLabel, savePath=None):
         self.authMap = None
         self.systemId = systemId
@@ -83,7 +89,7 @@ class PackageFetch(object):
         filePath = os.path.join(dirPath, rpmName)
         if os.path.exists(filePath) and self.verifyFile(filePath, size, md5sum):
             LOG.debug("%s exists with correct size and md5sum, no need to fetch." % (filePath))
-            return True
+            return PackageFetch.STATUS_NOOP
 
         toRead = 64 * 1024
         bytesRead = 0
@@ -107,13 +113,13 @@ class PackageFetch(object):
             LOG.error("%s size mismatch, read: %s bytes, was expecting %s bytes" \
                 % (rpmName, bytesRead, size))
             os.remove(filePath)
-            return False
+            return PackageFetch.STATUS_SIZE_MISSMATCH
         elif calcMd5sum != md5sum:
             LOG.error("%s md5sum mismatch, read md5sum of: %s expected md5sum of %s" \
                 %(rpmName, calcMd5sum, md5sum))
             os.remove(filePath)
-            return False
-        return True
+            return PackageFetch.STATUS_MD5_MISSMATCH
+        return PackageFetch.STATUS_DOWNLOADED
 
     def fetchRPM(self, pkg, retryTimes=2):
         """
@@ -146,7 +152,7 @@ class PackageFetch(object):
             LOG.critical("ERROR: Response = %s fetching %s.  Our Authentication Info is : %s" \
                 % (resp.status, fetchURL, authMap))
             conn.close()
-            return False
+            return PackageFetch.STATUS_ERROR
 
         size = int(pkg['package_size'])
         md5sum = pkg['md5sum']
@@ -159,7 +165,7 @@ class PackageFetch(object):
         #
         status = self.storeRPM(nevra, resp, size, md5sum, dirPath=d)
         conn.close()
-        if not status and retryTimes > 0:
+        if status == PackageFetch.STATUS_ERROR and retryTimes > 0:
             retryTimes -= 1
             LOG.warn("Retrying fetch of: %s with %s retry attempts left." % (nevra, retryTimes))
             return self.fetchRPM(pkg, retryTimes)
