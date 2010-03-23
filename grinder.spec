@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.22
+Version: 0.0.23
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -45,7 +45,7 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Tue Mar 23 2010 Mike McCune <mmccune@redhat.com> 0.0.22-1
+* Tue Mar 23 2010 Mike McCune <mmccune@redhat.com> 0.0.23-1
 - adding SyncReport to show # downloads, errors, etc.. (mmccune@redhat.com)
 - add fetching of comps.xml to support yum "group" operations
   (jwmatthews@gmail.com)
