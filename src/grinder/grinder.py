@@ -236,6 +236,7 @@ class Grinder:
         report = self.parallelFetch.waitForFinish()
         LOG.debug("Attempting to fetch comps.xml info from RHN")
         self.fetchCompsXML(savePath, channelLabel)
+        self.fetchUpdateinfo(savePath, channelLabel)
         endTime = time.time()
         LOG.info("Proccessed'd <%s> %s packages, %s errors, completed in %s seconds" \
                 % (channelLabel, report.successes, report.errors, (endTime-startTime)))
@@ -243,7 +244,7 @@ class Grinder:
             LOG.info("Remove old packages from %s" % (savePath))
 
             self.runRemoveOldPackages(savePath)
-        return report
+        return fetched, errors
     
     def fetchCompsXML(self, savePath, channelLabel):
         ###
@@ -254,6 +255,23 @@ class Grinder:
             savePath = channelLabel
         f = open(os.path.join(savePath, "comps.xml"), "w")
         f.write(compsxml)
+        f.close()
+
+    def fetchUpdateinfo(self, savePath, channelLabel):
+        """
+          Fetch updateinfo.xml.gz used by yum security plugin
+        """
+        import gzip
+        updateinfo_gz = self.rhnComm.getRepodata(channelLabel, "updateinfo.xml.gz")
+        if not savePath:
+            savePath = channelLabel
+        fname = os.path.join(savePath, "updateinfo.xml.gz")
+        f = open(fname, 'wb');
+        f.write(updateinfo_gz)
+        f.close()
+
+        f = open(os.path.join(savePath,"updateinfo.xml"), 'w')
+        f.write(gzip.open(fname, 'r').read())
         f.close()
         
 
@@ -337,6 +355,22 @@ class Grinder:
             raise CreateRepoError(out)
         endTime = time.time()
         LOG.info("createrepo on %s finished in %s seconds" % (dir, (endTime-startTime)))
+        return status, out
+
+    def updateRepo(self, updatepath, repopath):
+        startTime = time.time()
+        status, out = commands.getstatusoutput('modifyrepo %s %s' % (updatepath, repopath))
+        class CreateRepoError:
+            def __init__(self, output):
+                self.output = output
+
+            def __str__(self):
+                return self.output
+
+        if status != 0:
+            raise CreateRepoError(out)
+        endTime = time.time()
+        LOG.info("updaterepo on %s finished in %s seconds" % (dir, (endTime-startTime)))
         return status, out
 
 _LIBPATH = "/usr/share/"
@@ -501,11 +535,13 @@ def main():
     for cl in channelLabels.keys():
         dirPath = os.path.join(basepath, channelLabels[cl])
         LOG.info("Syncing '%s' to '%s'" % (cl, dirPath))
-        report = GRINDER.sync(cl, savePath=dirPath, verbose=verbose)
+        fetched, errors = GRINDER.sync(cl, savePath=dirPath, verbose=verbose)
         
         LOG.info("Sync completed, running createrepo")
         if (GRINDER.killcount == 0):
             GRINDER.createRepo(dirPath)
+            # Update the repodata to include updateinfo
+            GRINDER.updateRepo(os.path.join(dirPath,"updateinfo.xml"), os.path.join(dirPath,"repodata/"))
 
 if __name__ == "__main__":
     main()
