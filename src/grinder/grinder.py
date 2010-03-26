@@ -244,13 +244,20 @@ class Grinder:
             LOG.info("Remove old packages from %s" % (savePath))
 
             self.runRemoveOldPackages(savePath)
-        return fetched, errors
+        return report
     
     def fetchCompsXML(self, savePath, channelLabel):
         ###
         # Fetch comps.xml, used by createrepo for "groups" info
         ###
-        compsxml = self.rhnComm.getRepodata(channelLabel, "comps.xml")
+        compsxml = ""
+        try:
+            compsxml = self.rhnComm.getRepodata(channelLabel, "comps.xml")
+        except GetRequestException, ge:
+            if (ge.code == 404):
+                LOG.info("Channel has no compsXml")
+            else:
+                raise ge
         if not savePath:
             savePath = channelLabel
         f = open(os.path.join(savePath, "comps.xml"), "w")
@@ -262,7 +269,14 @@ class Grinder:
           Fetch updateinfo.xml.gz used by yum security plugin
         """
         import gzip
-        updateinfo_gz = self.rhnComm.getRepodata(channelLabel, "updateinfo.xml.gz")
+        updateinfo_gz = ""
+        try:
+            updateinfo_gz = self.rhnComm.getRepodata(channelLabel, "updateinfo.xml.gz")
+        except GetRequestException, ge:
+            if (ge.code == 404):
+                LOG.info("Channel has no Updateinfo")
+            else:
+                raise ge
         if not savePath:
             savePath = channelLabel
         fname = os.path.join(savePath, "updateinfo.xml.gz")
@@ -535,7 +549,7 @@ def main():
     for cl in channelLabels.keys():
         dirPath = os.path.join(basepath, channelLabels[cl])
         LOG.info("Syncing '%s' to '%s'" % (cl, dirPath))
-        fetched, errors = GRINDER.sync(cl, savePath=dirPath, verbose=verbose)
+        report = GRINDER.sync(cl, savePath=dirPath, verbose=verbose)
         
         LOG.info("Sync completed, running createrepo")
         if (GRINDER.killcount == 0):
