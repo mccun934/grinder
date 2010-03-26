@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.25
+Version: 0.0.26
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -45,6 +45,13 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri Mar 26 2010 Mike McCune <mmccune@redhat.com> 0.0.26-1
+- fixing condition when channel has no comps or update data
+  (mmccune@redhat.com)
+- Support for updateinfo.xml fetch and munge with existing createrepo data.
+  This is to make the errata data work in conjunction with yum security plugin
+  (pkilambi@redhat.com)
+
 * Tue Mar 23 2010 Mike McCune <mmccune@redhat.com> 0.0.25-1
 - adding SyncReport to show # downloads, errors, etc.. (mmccune@redhat.com)
 - add fetching of comps.xml to support yum "group" operations
