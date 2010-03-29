@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.27
+Version: 0.0.28
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -45,6 +45,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Mar 29 2010 John Matthews <jwmatthews@gmail.com> 0.0.28-1
+- small typo change (jwmatthews@gmail.com)
+
 * Fri Mar 26 2010 Mike McCune <mmccune@redhat.com> 0.0.27-1
 - fixing condition when channel has no comps or update data
   (mmccune@redhat.com)
