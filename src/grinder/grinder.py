@@ -238,7 +238,7 @@ class Grinder:
         self.fetchCompsXML(savePath, channelLabel)
         self.fetchUpdateinfo(savePath, channelLabel)
         endTime = time.time()
-        LOG.info("Proccessed'd <%s> %s packages, %s errors, completed in %s seconds" \
+        LOG.info("Processed <%s> %s packages, %s errors, completed in %s seconds" \
                 % (channelLabel, report.successes, report.errors, (endTime-startTime)))
         if self.removeOldPackages:
             LOG.info("Remove old packages from %s" % (savePath))
