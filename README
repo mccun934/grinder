@@ -1,7 +1,7 @@
 ABOUT
 =====
 
-Grinder is a tool for synching packages from RHN Hosted.  I fetches only packages, 
+Grinder is a tool for synching packages from RHN Hosted.  It fetches only packages, 
 no errata, no kickstart trees and can do this very quickly.
 
 NAME
