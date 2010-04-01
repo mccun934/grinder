@@ -494,10 +494,12 @@ def main():
         removeold = configInfo["removeold"]
     else:
         removeold = False
+    LOG.debug("removeold = %s" % (removeold))
 
     numOldPkgsKeep = 0
     if configInfo.has_key("num_old_pkgs_keep"):
         numOldPkgsKeep = int(configInfo["num_old_pkgs_keep"])
+    LOG.debug("numOldPkgsKeep = %s" % (numOldPkgsKeep))
 
     if allPackages and removeold:
         print "Conflicting options specified.  Fetch ALL packages AND remove older packages."
