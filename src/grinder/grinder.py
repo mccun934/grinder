@@ -199,17 +199,23 @@ class Grinder:
         return badChannel
 
 
-    def displayListOfChannels(self):
+    def getListOfChannelLabels(self):
+        labels = {}
         satDumpClient = SatDumpClient(self.baseURL)
         channelFamilies = satDumpClient.getChannelFamilies(self.systemid)
-        print("List of channels:")
         for d in channelFamilies.values():
             if (d["label"] in self.skipProductList):
-                LOG.debug("Skipping display of %s because it is in product skip list" % (d["label"]))
                 continue
-            print("\nProduct : %s\n" % (d["label"]))
-            for lbl in d["channel_labels"]:
-                print("    %s" % (lbl))
+            labels[d["label"]] = d["channel_labels"]
+        return labels
+
+    def displayListOfChannels(self):
+        labels = self.getListOfChannelLabels()
+        print("List of channels:")
+        for lbl in labels:
+            print("\nProduct : %s\n" % (lbl))
+            for l in labels[lbl]:
+                print("    %s" % (l))
 
 
     def sync(self, channelLabel, savePath=None, verbose=0):
