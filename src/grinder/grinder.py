@@ -199,7 +199,7 @@ class Grinder:
         return badChannel
 
 
-    def getListOfChannelLabels(self):
+    def getChannelLabels(self):
         labels = {}
         satDumpClient = SatDumpClient(self.baseURL)
         channelFamilies = satDumpClient.getChannelFamilies(self.systemid)
@@ -210,7 +210,7 @@ class Grinder:
         return labels
 
     def displayListOfChannels(self):
-        labels = self.getListOfChannelLabels()
+        labels = self.getChannelLabels()
         print("List of channels:")
         for lbl in labels:
             print("\nProduct : %s\n" % (lbl))

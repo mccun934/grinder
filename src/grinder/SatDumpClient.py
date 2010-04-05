@@ -47,6 +47,48 @@ class SatDumpClient(object):
             retVal[label] = val
         return retVal
 
+    def getKickstartLabels(self, systemId, channelLabels):
+        dom = self.client.dump.channels(systemId, channelLabels)
+        #Need to read attribute "kickstartable-trees"
+        #Example: kickstartable_trees="ks-rhel-i386-server-5 ks-rhel-i386-server-5-u1 
+        #  ks-rhel-i386-server-5-u2 ks-rhel-i386-server-5-u3 ks-rhel-i386-server-5-u4"
+        ksTrees = {}
+        rhnChannels = dom.getElementsByTagName("rhn-channel")
+        for channel in rhnChannels:
+            if "kickstartable-trees" in channel.attributes.keys():
+                ksTrees[channel.getAttribute("label")] = channel.getAttribute("kickstartable-trees").split()
+        return ksTrees
+    
+    def getKickstartTreeMetadata(self, systemId, ksLabels):
+        retVal = {}
+        dom = self.client.dump.kickstartable_trees(systemId, ksLabels)
+        ksTreeElements = dom.getElementsByTagName("rhn-kickstartable-tree")
+        for ksTree in ksTreeElements:
+            #Example: <rhn-kickstartable-tree base-path="rhn/kickstart/ks-rhel-x86_64-server-5-u4" 
+            #  boot-image="ks-rhel-x86_64-server-5-u4" channel="rhel-x86_64-server-5" 
+            #  install-type-label="rhel_5" install-type-name="Red Hat Enterprise Linux 5" 
+            #  kstree-type-label="rhn-managed" kstree-type-name="RHN managed kickstart tree" 
+            #  label="ks-rhel-x86_64-server-5-u4" 
+            #  last-modified="1253669992">
+            ksLabel = ksTree.getAttribute("label")
+            retVal[ksLabel] = {}
+            retVal[ksLabel]["base-path"] = ksTree.getAttribute("base-path") 
+            retVal[ksLabel]["last-modified"] = ksTree.getAttribute("last-modified") 
+            retVal[ksLabel]["channel"] = ksTree.getAttribute("channel")
+            retVal[ksLabel]["files"] = []
+            ksFilesElements = ksTree.getElementsByTagName("rhn-kickstart-files")
+            for ksFile in ksFilesElements:
+                files = ksFile.getElementsByTagName("rhn-kickstart-file")
+                for f in files:
+                    # <rhn-kickstart-files>
+                    #  <rhn-kickstart-file file-size="112" last-modified="1250668122" 
+                    #     md5sum="1bbc90ffcc96b5c6edea23876ad80f66" relative-path=".discinfo"/>
+                    fileInfo = {}
+                    for key in ["file-size", "last-modified", "relative-path", "md5sum"]:
+                        fileInfo[key] = f.getAttribute(key)
+                    retVal[ksLabel]["files"].append(fileInfo)
+        return retVal
+
     def getProductNames(self, systemId):
         retVal = {}
         dom = self.client.dump.product_names(systemId)
