@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.28
+Version: 0.0.29
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -45,6 +45,16 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Apr 06 2010 John Matthews <jwmatthews@gmail.com> 0.0.29-1
+- wip for kickstart fetching (jwmatthews@gmail.com)
+- Refactor ParallelFetch/PackageFetch code to get ready for Kickstart fetching
+  (jwmatthews@gmail.com)
+- add fetch of metadata for kickstarts (jwmatthews@gmail.com)
+- add method for returning filtered channel labels (jwmatthews@gmail.com)
+- bz572639 - add debug output for removeold and numOldPkgsKeep
+  (jwmatthews@gmail.com)
+- corrected typo (jconnor@satellite.localdomain)
+
 * Mon Mar 29 2010 John Matthews <jwmatthews@gmail.com> 0.0.28-1
 - small typo change (jwmatthews@gmail.com)
 
