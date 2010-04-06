@@ -32,7 +32,7 @@ except:
     import md5
 import logging
 import signal
-import ParallelFetch
+from ParallelFetch import ParallelFetch
 
 from optparse import Option, OptionParser
 from xmlrpclib import Fault
@@ -76,7 +76,7 @@ def processCommandline():
         Option('-p', '--password', action='store', help='RHN Passowrd'),
         Option('-P', '--parallel', action='store', 
             help='Number of threads to fetch in parallel.'),
-        Option('-r', '--removeold', action='store_true', help='Remove older rpms', default=False),
+        Option('-r', '--removeold', action='store_true', help='Remove older rpms'),
         Option('-s', '--systemid', action='store', help='System ID'),
         Option('-u', '--username', action='store', help='RHN User Account'),
         Option('-U', '--url', action='store', help='Red Hat Server URL'),
@@ -96,7 +96,8 @@ class Grinder:
         self.password = password
         self.parallel = parallel
         self.fetchAll = False     #default is only fetch latest packages
-        self.parallelFetch = None
+        self.parallelFetchPkgs = None
+        self.parallelFetchKickstarts = None
         self.skipProductList = []
         self.skipPackageList = []
         self.verbose = verbose
@@ -173,8 +174,10 @@ class Grinder:
             LOG.debug("Activated!")
 
     def stop(self):
-        if (self.parallelFetch):
-            self.parallelFetch.stop()
+        if (self.parallelFetchPkgs):
+            self.parallelFetchPkgs.stop()
+        if (self.parallelFetchKickstarts):
+            self.parallelFetchKickstarts.stop()
 
     def checkChannels(self, channelsToSync):
         """
@@ -217,8 +220,24 @@ class Grinder:
             for l in labels[lbl]:
                 print("    %s" % (l))
 
+    def syncKickstarts(self, channelLabel, ksLabels=None, savePath=None, verbose=0):
+        """
+        channelLabel -
+        ksLabel - OPTIONAL List, if None, sync all kickstart labels
+        savePath - OPTIONAL
+        verbose - OPTIONAL
+        """
+        pass
+        # Rough draft for what I think KS syncing will need
+        #for kLbl in ksLabels:
+        #    ksInfo = {} # need metadata calls to get a dict of ks files per ks label
+        #    ksFetch = KickstartFetch(self.systemid, self.baseURL, ksLabel, channelLabel, savePath)
+        #    self.parallelFetchKickstarts = ParallelFetch(ksFetch, numThreads)
+        #    self.parallelFetchKickstarts.addItemList(ksInfo.values())
+        #    self.parallelFetchKickstarts.start()
+        #    report = self.parallelFetchKickstarts.waitForFinish()
 
-    def sync(self, channelLabel, savePath=None, verbose=0):
+    def syncPackages(self, channelLabel, savePath, verbose=0):
         startTime = time.time()
         if channelLabel == "":
             LOG.critical("No channel label specified to sync, abort sync.")
@@ -235,11 +254,11 @@ class Grinder:
         errors = []
         numThreads = int(self.parallel)
         LOG.info("Running in parallel fetch mode with %s threads" % (numThreads))
-        self.parallelFetch = ParallelFetch(self.systemid, self.baseURL, 
-                channelLabel, numThreads=numThreads, savePath=savePath)
-        self.parallelFetch.addPkgList(pkgInfo.values())
-        self.parallelFetch.start()
-        report = self.parallelFetch.waitForFinish()
+        pkgFetch = PackageFetch(self.systemid, self.baseURL, channelLabel, savePath)
+        self.parallelFetchPkgs = ParallelFetch(pkgFetch, numThreads)
+        self.parallelFetchPkgs.addItemList(pkgInfo.values())
+        self.parallelFetchPkgs.start()
+        report = self.parallelFetchPkgs.waitForFinish()
         LOG.debug("Attempting to fetch comps.xml info from RHN")
         self.fetchCompsXML(savePath, channelLabel)
         self.fetchUpdateinfo(savePath, channelLabel)
@@ -527,6 +546,9 @@ def main():
         # that is all we will sync
         for a in args:
             channelLabels[a] = a
+        # FOR CLI syncing of channels, basePath will be current directory
+        # Result is channels get synced to ./channel-label
+        basepath = "./"
     else:
         if configInfo.has_key("channels"):
             channels = configInfo["channels"]
@@ -557,7 +579,7 @@ def main():
     for cl in channelLabels.keys():
         dirPath = os.path.join(basepath, channelLabels[cl])
         LOG.info("Syncing '%s' to '%s'" % (cl, dirPath))
-        report = GRINDER.sync(cl, savePath=dirPath, verbose=verbose)
+        report = GRINDER.syncPackages(cl, dirPath, verbose=verbose)
         
         LOG.info("Sync completed, running createrepo")
         if (GRINDER.killcount == 0):

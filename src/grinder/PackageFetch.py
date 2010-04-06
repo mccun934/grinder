@@ -28,162 +28,41 @@ except:
 import logging
 
 from RHNComm import RHNComm
+from BaseFetch import BaseFetch
 
 LOG = logging.getLogger("PackageFetch")
 
 
-class PackageFetch(object):
-    STATUS_NOOP = 'noop'
-    STATUS_DOWNLOADED = 'downloaded'
-    STATUS_SIZE_MISSMATCH = 'size_missmatch'
-    STATUS_MD5_MISSMATCH = 'md5_missmatch'
-    STATUS_ERROR = 'error'
+class PackageFetch(BaseFetch):
     
-    def __init__(self, systemId, baseURL, channelLabel, savePath=None):
-        self.authMap = None
-        self.systemId = systemId
-        self.baseURL = baseURL
+    def __init__(self, systemId, baseURL, channelLabel, savePath):
+        BaseFetch.__init__(self, systemId, baseURL)
         self.channelLabel = channelLabel
         self.savePath = savePath
-        self.rhnComm = RHNComm(baseURL, self.systemId)
-
-    def setSavePath(self, path):
-        self.savePath = path
-
+    
     def getFetchURL(self, channelLabel, fetchName):
         return "/SAT/$RHN/" + channelLabel + "/getPackage/" + fetchName;
 
-    def login(self, refresh=False):
-        return self.rhnComm.login(refresh)
-
-    def verifyFile(self, filePath, size, md5sum):
-        statinfo = os.stat(filePath)
-        if statinfo.st_size == size:
-            md5Hash = md5.md5()
-            file  = open(filePath, "rb")
-            while 1:
-                data = file.read(64*1024)
-                if not data:
-                    break
-                md5Hash.update(data)
-            file.close()
-            if md5Hash.hexdigest() == md5sum:
-                return True
-        return False
-
-    def storeRPM(self, rpmName, response, size, md5sum, dirPath="./packages", verbose=False):
-        """
-        Returns True if downloaded file matched expected size and md5sum.
-         False is there was an error, or downloaded data didn't match expected values
-        """
-        if not os.path.isdir(dirPath):
-            LOG.info("Creating directory: %s" % dirPath)
-            try:
-                os.makedirs(dirPath)
-            except OSError, e:
-                # Another thread may have created the dir since we checked,
-                # if that's the case we'll see errno=17, so ignore that exception
-                if e.errno != 17:
-                    LOG.critical(e)
-                    raise e
-        filePath = os.path.join(dirPath, rpmName)
-        if os.path.exists(filePath) and self.verifyFile(filePath, size, md5sum):
-            LOG.debug("%s exists with correct size and md5sum, no need to fetch." % (filePath))
-            return PackageFetch.STATUS_NOOP
-
-        toRead = 64 * 1024
-        bytesRead = 0
-        md5Hash = md5.md5()
-        file = open(filePath, "wb")
-        while 1:
-            startTime = time.time()
-            data = response.read(toRead)
-            endTime = time.time()
-            if not data:
-                break
-            file.write(data)
-            md5Hash.update(data)
-            bytesRead += len(data)
-            if verbose:
-                LOG.debug("%s Estimated bandwidth: %s KB/sec" \
-                        % (rpmName, len(data)/((endTime-startTime)*1000)))
-        file.close()
-        calcMd5sum = md5Hash.hexdigest()
-        if bytesRead != int(size):
-            LOG.error("%s size mismatch, read: %s bytes, was expecting %s bytes" \
-                % (rpmName, bytesRead, size))
-            os.remove(filePath)
-            return PackageFetch.STATUS_SIZE_MISSMATCH
-        elif calcMd5sum != md5sum:
-            LOG.error("%s md5sum mismatch, read md5sum of: %s expected md5sum of %s" \
-                %(rpmName, calcMd5sum, md5sum))
-            os.remove(filePath)
-            return PackageFetch.STATUS_MD5_MISSMATCH
-        return PackageFetch.STATUS_DOWNLOADED
-
-    def fetchRPM(self, pkg, retryTimes=2):
-        """
-        Input:
-            pkg = dict containing 'fetch_name', 'package_size', 'md5'
-        Will return a true/false if package was fetched successfully 
-        """
-        authMap = self.login()
-        r = urlparse.urlsplit(self.baseURL)
-        if hasattr(r, 'netloc'):
-            netloc = r.netloc
-        else:
-            netloc = r[1]
-        conn = httplib.HTTPConnection(netloc)
-
-        nevra = pkg["nevra"]
-        fetchName = pkg["fetch_name"]
+    def fetchItem(self, itemInfo):
+        fileName = itemInfo['nevra']
+        fetchName = itemInfo['fetch_name']
+        itemSize = itemInfo['package_size']
+        md5sum = itemInfo['md5sum']
         fetchURL = self.getFetchURL(self.channelLabel, fetchName)
-        LOG.info("Fetching: %s %s" % (self.channelLabel, nevra))
+        return self.fetch(fileName, fetchURL, itemSize, md5sum, self.savePath)
 
-        conn.request("GET", fetchURL, headers=authMap)
-        resp = conn.getresponse()
-        if resp.status == 401:
-            LOG.warn("Got a response of %s:%s, Will refresh authentication credentials and retry" \
-                % (resp.status, resp.reason))
-            authMap = self.login(refresh=True)
-            conn.request("GET", fetchURL, headers=authMap)
-            resp = conn.getresponse()
-        if resp.status != 200:
-            LOG.critical("ERROR: Response = %s fetching %s.  Our Authentication Info is : %s" \
-                % (resp.status, fetchURL, authMap))
-            conn.close()
-            return PackageFetch.STATUS_ERROR
-
-        size = int(pkg['package_size'])
-        md5sum = pkg['md5sum']
-        if self.savePath:
-            d = self.savePath
-        else:
-            d = self.channelLabel
-        #
-        # Incase of a network glitch or issue with RHN, retry the rpm fetch
-        #
-        status = self.storeRPM(nevra, resp, size, md5sum, dirPath=d)
-        conn.close()
-        if status == PackageFetch.STATUS_ERROR and retryTimes > 0:
-            retryTimes -= 1
-            LOG.warn("Retrying fetch of: %s with %s retry attempts left." % (nevra, retryTimes))
-            return self.fetchRPM(pkg, retryTimes)
-        return status
 
 if __name__ == "__main__":
     systemId = open("/etc/sysconfig/rhn/systemid").read()
     baseURL = "http://satellite.rhn.redhat.com"
     channelLabel = "rhel-i386-server-vt-5"
-    pf = PackageFetch(systemId, baseURL, channelLabel)
+    savePath = "./test123"
+    pf = PackageFetch(systemId, baseURL, channelLabel, savePath)
     pkg = {}
     pkg['nevra'] = "Virtualization-es-ES-5.2-9.noarch.rpm"
     pkg['fetch_name'] = "Virtualization-es-ES-5.2-9:.noarch.rpm"
     pkg['package_size'] = "1731195"
     pkg['md5sum'] = "91b0f20aeeda88ddae4959797003a173" 
-    pf.setSavePath("./test123")
-    if pf.fetchRPM(pkg):
-        print "Package fetch was successful"
-    else:
-        print "Error with package fetch"
+    status = pf.fetchItem(pkg)
+    print "Package fetch status is %s" % (status)
 
