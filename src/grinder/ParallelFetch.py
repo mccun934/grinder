@@ -30,6 +30,8 @@ class SyncReport:
         self.successes = 0
         self.downloads = 0
         self.errors = 0
+    def __str__(self):
+        return "%s successes, %s downloads, %s errors" % (self.successes, self.downloads, self.errors)
 
 class ParallelFetch(object):
     def __init__(self, fetcher, numThreads=3):

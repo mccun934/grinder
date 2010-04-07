@@ -15,21 +15,9 @@
 # granted to use or replicate Red Hat trademarks that are incorporated
 # in this software or its documentation.
 #
-import os
-import xmlrpclib
-import httplib
-import urlparse
-import time
-try:
-    import hashlib as md5
-except:
-    import md5
-
 import logging
 
-from RHNComm import RHNComm
 from BaseFetch import BaseFetch
-
 LOG = logging.getLogger("PackageFetch")
 
 

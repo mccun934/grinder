@@ -65,17 +65,21 @@ class BaseFetch(object):
         Returns True if downloaded file matched expected size and md5sum.
          False is there was an error, or downloaded data didn't match expected values
         """
-        if not os.path.isdir(dirPath):
-            LOG.info("Creating directory: %s" % dirPath)
+        # For case of kickstarts fileName may contain subdirectories
+        filePath = os.path.join(dirPath, fileName)
+        tempDirPath = os.path.dirname(filePath)
+        if not os.path.isdir(tempDirPath):
+            LOG.info("Creating directory: %s" % tempDirPath)
             try:
-                os.makedirs(dirPath)
+                os.makedirs(tempDirPath)
             except OSError, e:
                 # Another thread may have created the dir since we checked,
                 # if that's the case we'll see errno=17, so ignore that exception
                 if e.errno != 17:
+                    tb_info = traceback.format_exc()
+                    LOG.debug("%s" % (tb_info))
                     LOG.critical(e)
                     raise e
-        filePath = os.path.join(dirPath, fileName)
         if os.path.exists(filePath) and self.verifyFile(filePath, size, md5sum):
             LOG.debug("%s exists with correct size and md5sum, no need to fetch." % (filePath))
             return BaseFetch.STATUS_NOOP
@@ -89,6 +93,8 @@ class BaseFetch(object):
             try:
                 data = response.read(toRead)
             except Exception, e:
+                tb_info = traceback.format_exc()
+                LOG.debug("%s" % (tb_info))
                 LOG.warn("Caught exception <%s> in BaseFetch::__storeFile(%s)" % 
                     (e, fileName))
                 file.close()
@@ -134,7 +140,7 @@ class BaseFetch(object):
                 netloc = r[1]
             conn = httplib.HTTPConnection(netloc)
             conn.request("GET", fetchURL, headers=authMap)
-            LOG.info("Fetching: %s from %s" % (fileName, fetchURL))
+            LOG.info("Fetching %s bytes: %s from %s" % (itemSize, fileName, fetchURL))
             resp = conn.getresponse()
             if resp.status == 401:
                 LOG.warn("Got a response of %s:%s, Will refresh authentication credentials and retry" \

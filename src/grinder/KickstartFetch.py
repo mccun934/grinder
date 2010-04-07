@@ -1,6 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
 # Copyright (c) 2010 Red Hat, Inc.
+#
+# Authors: John Matthews
 #
 # This software is licensed to you under the GNU General Public License,
 # version 2 (GPLv2). There is NO WARRANTY for this software, express or
@@ -13,90 +15,71 @@
 # granted to use or replicate Red Hat trademarks that are incorporated
 # in this software or its documentation.
 #
+import logging
 
-import sys
-import httplib
-import urlparse
-import time
-
-try:
-    import hashlib as md5
-except:
-    import md5
-
-from SatDumpClient import SatDumpClient
-from RHNComm import RHNComm
+from BaseFetch import BaseFetch
+LOG = logging.getLogger("KickstartFetch")
 
 
-def login(baseURL, systemId):
-    rhnComm = RHNComm(baseURL, systemId)
-    return rhnComm.login()
+class KickstartFetch(BaseFetch):
 
-def download(baseURL, authMap, channelLabel, ksTreeLabel, ksFilePath):
-    r = urlparse.urlsplit(baseURL)
-    if hasattr(r, 'netloc'):
-        netloc = r.netloc
-    else:
-        netloc = r[1]
+    def __init__(self, systemId, baseURL):
+        BaseFetch.__init__(self, systemId, baseURL)
 
-    fetchURL = getFetchURL(channelLabel, ksTreeLabel, ksFilePath)
-    conn = httplib.HTTPConnection(netloc)
-    conn.request("GET", fetchURL, headers=authMap)
-    resp = conn.getresponse()
+    def getFetchURL(self, channelLabel, ksLabel, ksFilePath):
+        return "/SAT/$RHN/" + channelLabel + "/getKickstartFile/" + ksLabel + "/" + ksFilePath;
 
-    bytesRead = 0
-    md5Hash = md5.md5()
-    while 1:
-        data = resp.read(64 * 1024)
-        if not data:
-            break
-        md5Hash.update(data)
-        bytesRead += len(data)
-    calcMd5sum = md5Hash.hexdigest()
-    return bytesRead, calcMd5sum
+    def fetchItem(self, itemInfo):
+        fileName = itemInfo['relative-path']
+        itemSize = itemInfo['size']
+        md5sum = itemInfo['md5sum']
+        ksLabel = itemInfo['ksLabel']
+        channelLabel = itemInfo['channelLabel']
+        savePath = itemInfo['savePath']
+        fetchURL = self.getFetchURL(channelLabel, ksLabel, fileName)
+        return self.fetch(fileName, fetchURL, itemSize, md5sum, savePath)
 
-
-def getFetchURL(channelLabel, ksTreeLabel, ksFilePath):
-    return "/SAT/$RHN/" + channelLabel + "/getKickstartFile/" + ksTreeLabel + "/" + ksFilePath;
-
-def testKSFileDownload(baseURL, systemId, metadata):
-    startTime = time.time()
-    loginAuth = login(baseURL, systemId)
-    for ksLabel in metadata:
-        print "KS files should be written to %s" % (metadata[ksLabel]["base-path"])
-        channelLabel = metadata[ksLabel]["channel"]
-        for ksFile in metadata[ksLabel]["files"]:
-            url = baseURL + getFetchURL(channelLabel, ksLabel, ksFile['relative-path'])
-            print "Download %s" % (url)
-            bytesRead, calcMd5sum = download(baseURL, loginAuth, channelLabel, ksLabel, ksFile['relative-path'])
-            print "Expected file size: %s, md5sum: %s" % (ksFile['file-size'], ksFile['md5sum'])
-            if bytesRead != int(ksFile['file-size']):
-                print "*****ERROR*****, read %s bytes instead of %s" % (bytesRead, ksFile['file-size'])
-            if calcMd5sum != ksFile['md5sum']:
-                print "*****ERROR*****, read md5sum of %s instead of %s" % (calcMd5sum, ksFile['md5sum'])
-    endTime = time.time()
-    print "It took %s seconds to fetch the files" % (endTime - startTime)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print "Usage: %s CHANNEL-LABEL1 CHANNEL_LABEL2, etc" % (sys.argv[0])
-        sys.exit(1)
+    import grinder
+    grinder.setupLogging(False)
 
-    url = "http://satellite.rhn.redhat.com"
-    satDump = SatDumpClient(url)
-    channelLabels = sys.argv[1:]
     systemId = open("/etc/sysconfig/rhn/systemid").read()
-    print "Fetch kickstart labels for '%s'" % (channelLabels)
-    kickstartTrees = satDump.getKickstartLabels(systemId, channelLabels)
-    print "Kickstart labels = ", kickstartTrees
-    startTime = time.time()
-    for channelLabel in kickstartTrees:
-        ksLabels = kickstartTrees[channelLabel]
-        for ksLbl in ksLabels:
-            metadata = satDump.getKickstartTreeMetadata(systemId, [ksLbl])
-            #print "%s Kickstart metadata for '%s' is :\n %s" % (channelLabel, ksLbl, metadata)
-            testKSFileDownload(url, systemId, metadata)
-    endTime = time.time()
-    print "time = %s seconds" % (endTime - startTime)
+    baseURL = "http://satellite.rhn.redhat.com"
+    channelLabel = "rhel-i386-server-5"
+    ksLabel = "ks-rhel-i386-server-5"
+    savePath = "./test123"
+    kf = KickstartFetch(systemId, baseURL)
+    item = {}
+    item['relative-path'] = "GPL"
+    item['size'] = "18416"
+    item['md5sum'] = "6ebd41aa30b178eacb885447b1682e2d"
+    item["ksLabel"] = ksLabel
+    item["channelLabel"] = channelLabel
+    item["savePath"] = savePath
+    status = kf.fetchItem(item)
+    assert status in [BaseFetch.STATUS_NOOP, BaseFetch.STATUS_DOWNLOADED]
+    print "Kickstart fetch of %s has status %s" % (item['relative-path'], status)
+    badItem = {}
+    badItem['relative-path'] = "EULA"
+    badItem['size'] = "8446"
+    badItem['md5sum'] = "4cb33358ca64e87f7650525BADbebd67" #intentional bad md5sum
+    badItem["ksLabel"] = ksLabel
+    badItem["channelLabel"] = channelLabel
+    badItem["savePath"] = savePath
+    status = kf.fetchItem(badItem)
+    assert status == BaseFetch.STATUS_MD5_MISSMATCH
+    print "Test of bad md5sum passed"
+    badItem = {}
+    badItem['relative-path'] = "ClusterStorage/repodata/primary.xml.gz"
+    badItem['size'] = "123456" #intentional bad size
+    badItem['md5sum'] = "66ab1dd4e02e4e0f8655d3ee2489c18a"
+    badItem["ksLabel"] = ksLabel
+    badItem["channelLabel"] = channelLabel
+    badItem["savePath"] = savePath
+    status = kf.fetchItem(badItem)
+    assert status == BaseFetch.STATUS_SIZE_MISSMATCH
+    print "Test of bad size passed"
+    print "All tests passed"
 
 

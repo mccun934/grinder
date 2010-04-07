@@ -33,6 +33,7 @@ except:
 import logging
 import signal
 from ParallelFetch import ParallelFetch
+from KickstartFetch import KickstartFetch
 
 from optparse import Option, OptionParser
 from xmlrpclib import Fault
@@ -72,6 +73,8 @@ def processCommandline():
         Option('-c', '--cert', action='store', help='Entitlement Certificate'),
         Option('-C', '--config', action='store', help='Configuration file',
             default='/etc/grinder/grinder.yml'),
+        Option('-k', '--kickstarts', action='store_true', help='Sync all kickstart trees for channels specified'),
+        Option('-K', '--skippackages', action='store_true', help='Skip sync of packages', default=False),
         Option('-L', '--listchannels', action='store_true', help='List all channels we have access to synchronize'),
         Option('-p', '--password', action='store', help='RHN Passowrd'),
         Option('-P', '--parallel', action='store', 
@@ -186,8 +189,8 @@ class Grinder:
         Output:
              list containing bad channel names
         """
-        satDumpClient = SatDumpClient(self.baseURL)
-        channelFamilies = satDumpClient.getChannelFamilies(self.systemid)
+        satDump = SatDumpClient(self.baseURL)
+        channelFamilies = satDump.getChannelFamilies(self.systemid)
         badChannel = []
         for channelLabel in channelsToSync:
             found = False
@@ -204,8 +207,8 @@ class Grinder:
 
     def getChannelLabels(self):
         labels = {}
-        satDumpClient = SatDumpClient(self.baseURL)
-        channelFamilies = satDumpClient.getChannelFamilies(self.systemid)
+        satDump = SatDumpClient(self.baseURL)
+        channelFamilies = satDump.getChannelFamilies(self.systemid)
         for d in channelFamilies.values():
             if (d["label"] in self.skipProductList):
                 continue
@@ -220,38 +223,61 @@ class Grinder:
             for l in labels[lbl]:
                 print("    %s" % (l))
 
-    def syncKickstarts(self, channelLabel, ksLabels=None, savePath=None, verbose=0):
+    def syncKickstarts(self, channelLabel, savePath, verbose=0):
         """
-        channelLabel -
-        ksLabel - OPTIONAL List, if None, sync all kickstart labels
-        savePath - OPTIONAL
-        verbose - OPTIONAL
+        channelLabel - channel to sync kickstarts from
+        savePath - path to save kickstarts
+        verbose - if true display more output
         """
-        pass
-        # Rough draft for what I think KS syncing will need
-        #for kLbl in ksLabels:
-        #    ksInfo = {} # need metadata calls to get a dict of ks files per ks label
-        #    ksFetch = KickstartFetch(self.systemid, self.baseURL, ksLabel, channelLabel, savePath)
-        #    self.parallelFetchKickstarts = ParallelFetch(ksFetch, numThreads)
-        #    self.parallelFetchKickstarts.addItemList(ksInfo.values())
-        #    self.parallelFetchKickstarts.start()
-        #    report = self.parallelFetchKickstarts.waitForFinish()
+        startTime = time.time()
+        satDump = SatDumpClient(self.baseURL, verbose=verbose)
+        ksLabels = satDump.getKickstartLabels(self.systemid, [channelLabel])
+        LOG.info("Found %s kickstart labels for channel %s" % (len(ksLabels[channelLabel]), channelLabel))
+        ksFiles = []
+        for ksLbl in ksLabels[channelLabel]:
+            LOG.info("Syncing kickstart label: %s" % (ksLbl))
+            metadata = satDump.getKickstartTreeMetadata(self.systemid, [ksLbl])
+            LOG.info("Retrieved metadata on %s files for kickstart label: %s" % (len(metadata[ksLbl]["files"]), ksLbl))
+            ksSavePath = os.path.join(savePath, ksLbl)
+            for ksFile in metadata[ksLbl]["files"]:
+                info = {}
+                info["relative-path"] = ksFile["relative-path"]
+                info["size"] = ksFile["file-size"]
+                info["md5sum"] = ksFile["md5sum"]
+                info["ksLabel"] = ksLbl
+                info["channelLabel"] = channelLabel
+                info["savePath"] = ksSavePath
+                ksFiles.append(info)
+        ksFetch = KickstartFetch(self.systemid, self.baseURL)
+        numThreads = int(self.parallel)
+        self.parallelFetchKickstarts = ParallelFetch(ksFetch, numThreads)
+        self.parallelFetchKickstarts.addItemList(ksFiles)
+        self.parallelFetchKickstarts.start()
+        report = self.parallelFetchKickstarts.waitForFinish()
+        endTime = time.time()
+        LOG.info("Processed %s %s %s kickstart files, %s errors, completed in %s seconds" \
+                % (channelLabel, ksLabels[channelLabel], report.successes, 
+                    report.errors, (endTime-startTime)))
+        return report
 
     def syncPackages(self, channelLabel, savePath, verbose=0):
+        """
+        channelLabel - channel to sync packages from
+        savePath - path to save packages
+        verbose - if true display more output
+        """
         startTime = time.time()
         if channelLabel == "":
             LOG.critical("No channel label specified to sync, abort sync.")
             raise NoChannelLabelException()
         LOG.info("sync(%s, %s) invoked" % (channelLabel, verbose))
-        satDumpClient = SatDumpClient(self.baseURL, verbose=verbose)
+        satDump = SatDumpClient(self.baseURL, verbose=verbose)
         LOG.debug("*** calling product_names ***")
-        packages = satDumpClient.getChannelPackages(self.systemid, channelLabel)
+        packages = satDump.getChannelPackages(self.systemid, channelLabel)
         LOG.info("%s packages are available, getting list of short metadata now." % (len(packages)))
-        pkgInfo = satDumpClient.getShortPackageInfo(self.systemid, packages, filterLatest = not self.fetchAll)
+        pkgInfo = satDump.getShortPackageInfo(self.systemid, packages, filterLatest = not self.fetchAll)
         LOG.info("%s packages have been marked to be fetched" % (len(pkgInfo.values())))
 
-        fetched = []
-        errors = []
         numThreads = int(self.parallel)
         LOG.info("Running in parallel fetch mode with %s threads" % (numThreads))
         pkgFetch = PackageFetch(self.systemid, self.baseURL, channelLabel, savePath)
@@ -409,7 +435,7 @@ class Grinder:
         if status != 0:
             raise CreateRepoError(out)
         endTime = time.time()
-        LOG.info("updaterepo on %s finished in %s seconds" % (dir, (endTime-startTime)))
+        LOG.info("updaterepo on %s finished in %s seconds" % (repopath (endTime-startTime)))
         return status, out
 
 _LIBPATH = "/usr/share/"
@@ -581,15 +607,26 @@ def main():
         sys.exit(1)
     for cl in channelLabels.keys():
         dirPath = os.path.join(basepath, channelLabels[cl])
-        LOG.info("Syncing '%s' to '%s'" % (cl, dirPath))
-        report = GRINDER.syncPackages(cl, dirPath, verbose=verbose)
-        
-        LOG.info("Sync completed, running createrepo")
-        if (GRINDER.killcount == 0):
-            GRINDER.createRepo(dirPath)
-            # Update the repodata to include updateinfo
-            GRINDER.updateRepo(os.path.join(dirPath,"updateinfo.xml"), os.path.join(dirPath,"repodata/"))
-
+        if OPTIONS.skippackages == False:
+            LOG.info("Syncing '%s' to '%s'" % (cl, dirPath))
+            startTime = time.time()
+            reportPkgs = GRINDER.syncPackages(cl, dirPath, verbose=verbose)
+            endTime = time.time()
+            pkgTime = endTime - startTime
+            if (GRINDER.killcount == 0):
+                LOG.info("Sync completed, running createrepo")
+                GRINDER.createRepo(dirPath)
+                # Update the repodata to include updateinfo
+                GRINDER.updateRepo(os.path.join(dirPath,"updateinfo.xml"), os.path.join(dirPath,"repodata/"))
+        if OPTIONS.kickstarts and GRINDER.killcount == 0:
+            startTime = time.time()
+            reportKSs = GRINDER.syncKickstarts(cl, dirPath, verbose=verbose)
+            endTime = time.time()
+            ksTime = endTime - startTime
+        if OPTIONS.skippackages == False:
+            LOG.info("Summary: Packages = %s in %s seconds" % (reportPkgs, pkgTime))
+        if OPTIONS.kickstarts:
+            LOG.info("Summary: Kickstarts = %s in %s seconds" % (reportKSs, ksTime))
 if __name__ == "__main__":
     main()
 
