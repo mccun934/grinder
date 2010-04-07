@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.29
+Version: 0.0.30
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -45,6 +45,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Apr 07 2010 John Matthews <jwmatthews@gmail.com> 0.0.30-1
+- 580082 - grinder -b /tmp/syncdir is not syncing channel to specified
+  basepath. (jwmatthews@gmail.com)
+
 * Tue Apr 06 2010 John Matthews <jwmatthews@gmail.com> 0.0.29-1
 - wip for kickstart fetching (jwmatthews@gmail.com)
 - Refactor ParallelFetch/PackageFetch code to get ready for Kickstart fetching
