@@ -435,7 +435,7 @@ class Grinder:
         if status != 0:
             raise CreateRepoError(out)
         endTime = time.time()
-        LOG.info("updaterepo on %s finished in %s seconds" % (repopath (endTime-startTime)))
+        LOG.info("updaterepo on %s finished in %s seconds" % (repopath, (endTime-startTime)))
         return status, out
 
 _LIBPATH = "/usr/share/"
