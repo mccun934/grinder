@@ -546,9 +546,12 @@ def main():
         # that is all we will sync
         for a in args:
             channelLabels[a] = a
-        # FOR CLI syncing of channels, basePath will be current directory
-        # Result is channels get synced to ./channel-label
-        basepath = "./"
+        # FOR CLI syncing of channels, override basePath to ignore config file
+        # Result is channels get synced to CLI "-b" option or ./channel-label
+        if OPTIONS.basepath:
+            basepath = OPTIONS.basepath
+        else:
+            basepath = "./"
     else:
         if configInfo.has_key("channels"):
             channels = configInfo["channels"]
