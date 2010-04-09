@@ -127,6 +127,6 @@ class YumRepoGrinder(object):
         return report
 
 if __name__ == "__main__":
-    yfetch = YumRepoGrinder("rhel-6", \
-        "http://download.devel.redhat.com/released/RHEL-6/Alpha-3/i386/os/", 20)
+    yfetch = YumRepoGrinder("centos-5", \
+        "http://mirrors.kernel.org/centos/5/os/x86_64/", 20)
     yfetch.fetchYumRepo()
