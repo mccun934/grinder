@@ -24,7 +24,6 @@ import urllib
 import urlparse
 import logging
 
-from yum import config
 from ParallelFetch import ParallelFetch
 
 LOG = logging.getLogger("RepoFetch")
@@ -50,6 +49,7 @@ class RepoFetch(object):
         else:
             self.repo.baseurl = [self.repourl]
         self.repo.baseurlSetup()
+        self.repo.dirSetup()
         self.repo.setup(False)
 
     def getPackageList(self, newest=False):
@@ -84,7 +84,7 @@ class RepoFetch(object):
         self.repo.getFileListsXML()
         self.repo.getOtherXML()
         self.repo.getGroups()
-        print("Fetching repo metadata for repo %s" % self.repo_label)
+        print("Fetched repo metadata for %s" % self.repo_label)
 
     def validatePackage(self, fo, pkg, fail):
         return pkg.verifyLocalPkg()
@@ -98,6 +98,7 @@ class YumRepoGrinder(object):
         self.repo_url = repo_url
         self.mirrors = mirrors
         self.numThreads = int(parallel)
+        self.fetchPkgs = None
 
     def fetchYumRepo(self, basepath="./"):
         startTime = time.time()
@@ -117,14 +118,18 @@ class YumRepoGrinder(object):
         # first fetch the metadata
         yumFetch.getRepoData()
         # prepare for download
-        fetchPkgs = ParallelFetch(yumFetch, self.numThreads)
-        fetchPkgs.addItemList(downloadinfo)
-        fetchPkgs.start()
-        report = fetchPkgs.waitForFinish()
+        self.fetchPkgs = ParallelFetch(yumFetch, self.numThreads)
+        self.fetchPkgs.addItemList(downloadinfo)
+        self.fetchPkgs.start()
+        report = self.fetchPkgs.waitForFinish()
         endTime = time.time()
         LOG.info("Processed <%s> packages in [%d] seconds" % (len(pkglist), \
-                  (startTime - endTime)))
+                  (endTime - startTime)))
         return report
+
+    def stop(self):
+        if self.fetchPkgs:
+            self.fetchPkgs.stop()
 
 if __name__ == "__main__":
     yfetch = YumRepoGrinder("centos-5", \
