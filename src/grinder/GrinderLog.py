@@ -31,8 +31,8 @@ def setup(verbose):
     else:
         console.setLevel(logging.INFO)
     formatter = Formatter('%(name)-12s: %(levelname)-8s %(message)s')
-    #handler = RotatingFileHandler(GRINDER_LOG_FILENAME, maxBytes=0x100000, \
-    #                              backupCount=5)
-    #handler.setFormatter(formatter)
+    handler = RotatingFileHandler(GRINDER_LOG_FILENAME, maxBytes=0x100000, \
+                                  backupCount=5)
+    handler.setFormatter(formatter)
     console.setFormatter(formatter)
     logging.getLogger('').addHandler(console)
