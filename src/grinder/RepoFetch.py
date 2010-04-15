@@ -66,6 +66,7 @@ class RepoFetch(object):
         return download_list
 
     def fetchItem(self, downloadinfo):
+        LOG.info("Fetching Package URL - [%s]" % downloadinfo['downloadurl'])
         urllib.urlretrieve(downloadinfo['downloadurl'], \
                            downloadinfo['savepath'])
 
@@ -84,7 +85,7 @@ class RepoFetch(object):
         self.repo.getFileListsXML()
         self.repo.getOtherXML()
         self.repo.getGroups()
-        print("Fetched repo metadata for %s" % self.repo_label)
+        LOG.info("Fetched repo metadata for %s" % self.repo_label)
 
     def validatePackage(self, fo, pkg, fail):
         return pkg.verifyLocalPkg()
