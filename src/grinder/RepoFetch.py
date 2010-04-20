@@ -25,6 +25,7 @@ import urlparse
 import logging
 import shutil
 
+from PrestoParser import PrestoParser
 from ParallelFetch import ParallelFetch
 
 LOG = logging.getLogger("RepoFetch")
@@ -52,10 +53,9 @@ class RepoFetch(object):
         self.repo.baseurlSetup()
         self.repo.dirSetup()
         self.repo.setup(False)
+        self.deltamd = None
 
     def getPackageList(self, newest=False):
-        self.setupRepo()
-
         sack = self.repo.getPackageSack()
         sack.populate(self.repo, 'metadata', None, 0)
         if newest:
@@ -63,6 +63,12 @@ class RepoFetch(object):
         else:
             download_list = sack.returnPackages()
         return download_list
+
+    def getDeltaPackageList(self):
+        if not self.deltamd:
+            return []
+        sack = PrestoParser(self.deltamd).getDeltas()
+        return sack.values()
 
     def fetchItem(self, downloadinfo):
         LOG.info("Fetching Package URL - [%s]" % downloadinfo['downloadurl'])
@@ -91,7 +97,10 @@ class RepoFetch(object):
             try:
                 ftypefile = self.repo.retrieveMD(ftype)
                 basename  = os.path.basename(ftypefile)
-                shutil.copyfile(ftypefile, "%s/%s" % (local_repo_path, basename))
+                destfile  = "%s/%s" % (local_repo_path, basename)
+                shutil.copyfile(ftypefile, destfile)
+                if ftype == "prestodelta": 
+                    self.deltamd = destfile 
             except:
                 LOG.error("Unable to Fetch Repo data file %s" % ftype)
         LOG.info("Fetched repo metadata for %s" % self.repo_label)
@@ -109,31 +118,58 @@ class YumRepoGrinder(object):
         self.mirrors = mirrors
         self.numThreads = int(parallel)
         self.fetchPkgs = None
+        self.downloadinfo = []
+        self.yumFetch = None
+
+    def prepareRPMS(self):
+        pkglist = self.yumFetch.getPackageList()
+        for pkg in pkglist:
+            info = {}
+            info['downloadurl'] = urlparse.urljoin(self.yumFetch.repourl, \
+                                                   pkg.relativepath, \
+                                                   "packages")
+            info['savepath'] = os.path.join(self.yumFetch.repo_dir, "packages", \
+                                    pkg.__str__())
+            self.downloadinfo.append(info)
+        LOG.info("%s packages have been marked to be fetched" % len(pkglist))
+
+    def prepareDRPMS(self):
+        deltarpms = self.yumFetch.getDeltaPackageList()
+        if not deltarpms:
+            return
+        drpmpath = os.path.join(self.yumFetch.repo_dir, "drpms")
+        if not os.path.exists(drpmpath):
+            try:
+                os.makedirs(drpmpath)
+            except:
+                LOG.error("Unable to create repo directory %s" % drpmpath)
+
+        for dpkg in deltarpms:
+            info = {}
+            relativepath = dpkg.deltas.values()[0].filename
+            info['downloadurl'] = urlparse.urljoin(self.yumFetch.repourl, relativepath)
+            info['savepath'] = os.path.join(drpmpath, os.path.basename(relativepath))
+            self.downloadinfo.append(info)
+        LOG.info("%s delta rpms have been marked to be fetched" % len(deltarpms))
 
     def fetchYumRepo(self, basepath="./"):
         startTime = time.time()
-        yumFetch = RepoFetch(self.repo_label, repourl=self.repo_url, \
+        self.yumFetch = RepoFetch(self.repo_label, repourl=self.repo_url, \
                             mirrorlist=self.mirrors, download_dir=basepath)
-        pkglist = yumFetch.getPackageList()
-        LOG.info("%s packages have been marked to be fetched" % len(pkglist))
-        downloadinfo = []
-        for pkg in pkglist:
-            info = {}
-            info['downloadurl'] = urlparse.urljoin(yumFetch.repourl, \
-                                                   pkg.relativepath, \
-                                                   "packages")
-            info['savepath'] = os.path.join(yumFetch.repo_dir, "packages", \
-                                    pkg.__str__())
-            downloadinfo.append(info)
+        self.yumFetch.setupRepo()
         # first fetch the metadata
-        yumFetch.getRepoData()
+        self.yumFetch.getRepoData()
+        # get rpms to fetch
+        self.prepareRPMS()
+        # get drpms to fetch
+        self.prepareDRPMS()
         # prepare for download
-        self.fetchPkgs = ParallelFetch(yumFetch, self.numThreads)
-        self.fetchPkgs.addItemList(downloadinfo)
+        self.fetchPkgs = ParallelFetch(self.yumFetch, self.numThreads)
+        self.fetchPkgs.addItemList(self.downloadinfo)
         self.fetchPkgs.start()
         report = self.fetchPkgs.waitForFinish()
         endTime = time.time()
-        LOG.info("Processed <%s> packages in [%d] seconds" % (len(pkglist), \
+        LOG.info("Processed <%s> packages in [%d] seconds" % (len(self.downloadinfo), \
                   (endTime - startTime)))
         return report
 
