@@ -23,6 +23,7 @@ import time
 import urllib
 import urlparse
 import logging
+import shutil
 
 from ParallelFetch import ParallelFetch
 
@@ -57,8 +58,6 @@ class RepoFetch(object):
 
         sack = self.repo.getPackageSack()
         sack.populate(self.repo, 'metadata', None, 0)
-        sack.populate(self.repo, 'filelists', None, 0)
-        sack.populate(self.repo, 'otherdata', None, 0)
         if newest:
             download_list = sack.returnNewestByNameArch()
         else:
@@ -81,10 +80,20 @@ class RepoFetch(object):
             seed += 1
 
     def getRepoData(self):
-        self.repo.getPrimaryXML()
-        self.repo.getFileListsXML()
-        self.repo.getOtherXML()
-        self.repo.getGroups()
+        local_repo_path = os.path.join(self.repo_dir, "packages/repodata")
+        if not os.path.exists(local_repo_path):
+            try:
+                os.makedirs(local_repo_path)
+            except IOError, e:
+                LOG.error("Unable to create repo directory %s" % local_repo_path)
+
+        for ftype in self.repo.repoXML.fileTypes():
+            try:
+                ftypefile = self.repo.retrieveMD(ftype)
+                basename  = os.path.basename(ftypefile)
+                shutil.copyfile(ftypefile, "%s/%s" % (local_repo_path, basename))
+            except:
+                LOG.error("Unable to Fetch Repo data file %s" % ftype)
         LOG.info("Fetched repo metadata for %s" % self.repo_label)
 
     def validatePackage(self, fo, pkg, fail):
