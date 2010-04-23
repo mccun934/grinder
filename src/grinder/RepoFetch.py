@@ -86,7 +86,7 @@ class RepoFetch(object):
             seed += 1
 
     def getRepoData(self):
-        local_repo_path = os.path.join(self.repo_dir, "packages/repodata")
+        local_repo_path = os.path.join(self.repo_dir, "repodata")
         if not os.path.exists(local_repo_path):
             try:
                 os.makedirs(local_repo_path)
@@ -128,8 +128,7 @@ class YumRepoGrinder(object):
             info['downloadurl'] = urlparse.urljoin(self.yumFetch.repourl, \
                                                    pkg.relativepath, \
                                                    "packages")
-            info['savepath'] = os.path.join(self.yumFetch.repo_dir, "packages", \
-                                    pkg.__str__())
+            info['savepath'] = os.path.join(self.yumFetch.repo_dir, pkg.__str__() + ".rpm")
             self.downloadinfo.append(info)
         LOG.info("%s packages have been marked to be fetched" % len(pkglist))
 
