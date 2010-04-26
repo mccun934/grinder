@@ -14,6 +14,9 @@ all: False
 # Integer to control number of threads to use for fetching packages
 parallel: 20
 
+# Boolean if True, more debug like info is displayed in logs
+verbose: False
+
 # True/False to flag if we should remove older rpms
 removeold: True
 

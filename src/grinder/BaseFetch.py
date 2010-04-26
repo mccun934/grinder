@@ -98,6 +98,7 @@ class BaseFetch(object):
                 LOG.warn("Caught exception <%s> in BaseFetch::__storeFile(%s)" % 
                     (e, fileName))
                 file.close()
+                os.remove(filePath)
                 return BaseFetch.STATUS_ERROR
             endTime = time.time()
             if not data:

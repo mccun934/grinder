@@ -18,10 +18,12 @@ import os
 import sys
 import optparse
 import signal
+import traceback
 import logging
 import GrinderLog
 from optparse import OptionParser
 from RepoFetch import YumRepoGrinder
+from RHNContent import RHNContent
 
 LOG = logging.getLogger("GrinderCLI")
 
@@ -59,7 +61,104 @@ class CliDriver(object):
         self._do_command()
 
 class RHNDriver(CliDriver):
-    pass
+    parallel = 5
+    def __init__(self):
+        usage = "usage: %prog rhn [OPTIONS]"
+        shortdesc = "Fetches content from a rhn source."
+        desc = "rhn"
+        CliDriver.__init__(self, "rhn", usage, shortdesc, desc)
+        GrinderLog.setup(self.debug)
+
+        self.parser.add_option('-a', '--all', action='store_true', 
+                help='Fetch ALL packages from a channel, not just latest')
+        self.parser.add_option('-b', '--basepath', action='store', 
+                help='Path RPMs are stored')
+        self.parser.add_option('-c', '--certfile', action='store', 
+                help='Entitlement Certificate')
+        self.parser.add_option('-C', '--config', action='store', 
+                help='Configuration file')
+        self.parser.add_option('-k', '--kickstarts', action='store_true', 
+                help='Sync all kickstart trees for channels specified')
+        self.parser.add_option('-K', '--skippackages', action='store_true', 
+                help='Skip sync of packages', default=False)
+        self.parser.add_option('-L', '--listchannels', action='store_true', 
+                help='List all channels we have access to synchronize')
+        self.parser.add_option('-p', '--password', action='store',
+                help='RHN Password')
+        self.parser.add_option('-P', '--parallel', action='store',
+                help='Number of threads to fetch in parallel.', default=5)
+        self.parser.add_option('-r', '--removeold', action='store_true', 
+                help='Remove older rpms')
+        self.parser.add_option('-s', '--systemid', action='store', help='System ID')
+        self.parser.add_option('-u', '--username', action='store', help='RHN User Account')
+        self.parser.add_option('-U', '--url', action='store', help='Red Hat Server URL')
+
+    def _validate_options(self):
+        if self.options.all and self.options.removeold:
+            systemExit(1, "Conflicting options specified 'all' and 'removeold'.")
+
+    def _do_command(self):
+        """
+        Executes the command.
+        """
+        self._validate_options()
+        self.rhnContent = RHNContent()
+        if self.options.config:
+            if not self.rhnContent.loadConfig(self.options.config):
+                systemExit(1, "Unable to parse config file: %s" % (self.options.config))
+        if self.options.basepath:
+            self.rhnContent.setBasePath(self.options.basepath)
+        if self.options.url:
+            self.rhnContent.setURL(self.options.url)
+        if self.options.username:
+            self.rhnContent.setUsername(self.options.username)
+        if self.options.password:
+            self.rhnContent.setPassword(self.options.password)
+        if self.options.certfile:
+            self.rhnContent.setCert(self.options.certfile)
+        if self.options.systemid:
+            self.rhnContent.setSystemId(self.options.systemId)
+        if self.options.parallel:
+            self.rhnContent.setParallel(self.options.parallel)
+        if self.options.debug:
+            self.rhnContent.setVerbose(self.options.debug)
+        
+        if self.options.listchannels:
+            self.rhnContent.displayListOfChannels()
+        else:
+            # Check command line args for bad channel labels
+            badChannels = self.rhnContent.checkChannels(self.args)
+            if len(badChannels) > 0:
+                LOG.critical("Bad channel labels: %s" % (badChannels))
+                systemExit(1, "Please correct the channel labels you entered, then re-run")
+            channels = self.rhnContent.getChannelSyncList()
+            # Check config file for bad channel labels
+            badChannels = self.rhnContent.checkChannels([x['label'] for x in channels])
+            if len(badChannels) > 0:
+                LOG.critical("Bad channel labels: %s" % (badChannels))
+                systemExit(1, "Please correct the channel labels in: %s, then re-run" % (self.options.config))
+            basePath = self.rhnContent.getBasePath()
+            for c in self.args:
+                channels.append({'label':c, 'relpath':os.path.join(basePath,c)})
+            report = {}
+            for info in channels:
+                label = info['label']
+                savePath = info['relpath']
+                report[label] = {}
+                if not self.options.skippackages:
+                    report[label]["packages"] = self.rhnContent.syncPackages(label, 
+                            savePath, self.rhnContent.getVerbose())
+                elif self.options.kickstarts:
+                    report[label]["kickstarts"] = self.rhnContent.syncKickstarts(label, 
+                            savePath, self.rhnContent.getVerbose())
+            for r in report:
+                print "%s packages = %s" % (r, report[r]["packages"])
+                if report[r].has_key("kickstarts"):
+                    print "%s packages = %s" % (r, report[r]["kickstarts"])
+
+    def stop(self):
+        self.rhnContent.stop()
+
 
 class RepoDriver(CliDriver):
     parallel = 5
@@ -195,7 +294,6 @@ signal.signal(signal.SIGINT, handleKeyboardInterrupt)
 
 def systemExit(code, msgs=None):
     "Exit with a code and optional message(s). Saved a few lines of code."
-
     if msgs:
         if type(msgs) not in [type([]), type(())]:
             msgs = (msgs, )
@@ -209,5 +307,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         systemExit(0, "\nUser interrupted process.")
     except Exception, e:
-        systemExit(1, e)
+        tb_info = traceback.format_exc()
+        systemExit(1, tb_info)
 
