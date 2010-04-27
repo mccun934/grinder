@@ -48,7 +48,7 @@ from RHNComm import RHNComm
 
 LOG = logging.getLogger("grinder")
 
-class RHNContent:
+class RHNFetch:
     def __init__(self):
         self.baseURL = "https://satellite.rhn.redhat.com"
         self.certFile = "/etc/sysconfig/rhn/entitlement-cert.xml"

@@ -23,7 +23,7 @@ import logging
 import GrinderLog
 from optparse import OptionParser
 from RepoFetch import YumRepoGrinder
-from RHNContent import RHNContent
+from RHNFetch import RHNFetch
 
 LOG = logging.getLogger("GrinderCLI")
 
@@ -102,7 +102,7 @@ class RHNDriver(CliDriver):
         Executes the command.
         """
         self._validate_options()
-        self.rhnContent = RHNContent()
+        self.rhnContent = RHNFetch()
         if self.options.config:
             if not self.rhnContent.loadConfig(self.options.config):
                 systemExit(1, "Unable to parse config file: %s" % (self.options.config))
