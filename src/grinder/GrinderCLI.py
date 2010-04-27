@@ -23,7 +23,7 @@ import logging
 import GrinderLog
 from optparse import OptionParser
 from RepoFetch import YumRepoGrinder
-from RHNFetch import RHNFetch
+from RHNSync import RHNSync
 
 LOG = logging.getLogger("GrinderCLI")
 
@@ -61,13 +61,13 @@ class CliDriver(object):
         self._do_command()
 
 class RHNDriver(CliDriver):
-    parallel = 5
     def __init__(self):
         usage = "usage: %prog rhn [OPTIONS]"
         shortdesc = "Fetches content from a rhn source."
         desc = "rhn"
         CliDriver.__init__(self, "rhn", usage, shortdesc, desc)
         GrinderLog.setup(self.debug)
+        self.rhnSync = RHNSync()
 
         self.parser.add_option('-a', '--all', action='store_true', 
                 help='Fetch ALL packages from a channel, not just latest')
@@ -86,7 +86,7 @@ class RHNDriver(CliDriver):
         self.parser.add_option('-p', '--password', action='store',
                 help='RHN Password')
         self.parser.add_option('-P', '--parallel', action='store',
-                help='Number of threads to fetch in parallel.', default=5)
+                help='Number of threads to fetch in parallel.')
         self.parser.add_option('-r', '--removeold', action='store_true', 
                 help='Remove older rpms')
         self.parser.add_option('-s', '--systemid', action='store', help='System ID')
@@ -96,48 +96,51 @@ class RHNDriver(CliDriver):
     def _validate_options(self):
         if self.options.all and self.options.removeold:
             systemExit(1, "Conflicting options specified 'all' and 'removeold'.")
+        if self.options.config:
+            if not self.rhnSync.loadConfig(self.options.config):
+                systemExit(1, "Unable to parse config file: %s" % (self.options.config))
+        if self.options.all:
+            self.rhnSync.setFetchAllPackages(self.options.all)
+        if self.options.basepath:
+            self.rhnSync.setBasePath(self.options.basepath)
+        if self.options.url:
+            self.rhnSync.setURL(self.options.url)
+        if self.options.username:
+            self.rhnSync.setUsername(self.options.username)
+        if self.options.password:
+            self.rhnSync.setPassword(self.options.password)
+        if self.options.certfile:
+            cert = open(self.options.certfile, 'r').read()
+            self.rhnSync.setCert(cert)
+        if self.options.systemid:
+            sysid = open(self.options.systemid, 'r').read()
+            self.rhnSync.setSystemId(sysid)
+        if self.options.parallel:
+            self.rhnSync.setParallel(self.options.parallel)
+        if self.options.debug:
+            self.rhnSync.setVerbose(self.options.debug)
 
     def _do_command(self):
         """
         Executes the command.
         """
         self._validate_options()
-        self.rhnContent = RHNFetch()
-        if self.options.config:
-            if not self.rhnContent.loadConfig(self.options.config):
-                systemExit(1, "Unable to parse config file: %s" % (self.options.config))
-        if self.options.basepath:
-            self.rhnContent.setBasePath(self.options.basepath)
-        if self.options.url:
-            self.rhnContent.setURL(self.options.url)
-        if self.options.username:
-            self.rhnContent.setUsername(self.options.username)
-        if self.options.password:
-            self.rhnContent.setPassword(self.options.password)
-        if self.options.certfile:
-            self.rhnContent.setCert(self.options.certfile)
-        if self.options.systemid:
-            self.rhnContent.setSystemId(self.options.systemId)
-        if self.options.parallel:
-            self.rhnContent.setParallel(self.options.parallel)
-        if self.options.debug:
-            self.rhnContent.setVerbose(self.options.debug)
         
         if self.options.listchannels:
-            self.rhnContent.displayListOfChannels()
+            self.rhnSync.displayListOfChannels()
         else:
             # Check command line args for bad channel labels
-            badChannels = self.rhnContent.checkChannels(self.args)
+            badChannels = self.rhnSync.checkChannels(self.args)
             if len(badChannels) > 0:
                 LOG.critical("Bad channel labels: %s" % (badChannels))
                 systemExit(1, "Please correct the channel labels you entered, then re-run")
-            channels = self.rhnContent.getChannelSyncList()
+            channels = self.rhnSync.getChannelSyncList()
             # Check config file for bad channel labels
-            badChannels = self.rhnContent.checkChannels([x['label'] for x in channels])
+            badChannels = self.rhnSync.checkChannels([x['label'] for x in channels])
             if len(badChannels) > 0:
                 LOG.critical("Bad channel labels: %s" % (badChannels))
                 systemExit(1, "Please correct the channel labels in: %s, then re-run" % (self.options.config))
-            basePath = self.rhnContent.getBasePath()
+            basePath = self.rhnSync.getBasePath()
             for c in self.args:
                 channels.append({'label':c, 'relpath':os.path.join(basePath,c)})
             report = {}
@@ -146,18 +149,18 @@ class RHNDriver(CliDriver):
                 savePath = info['relpath']
                 report[label] = {}
                 if not self.options.skippackages:
-                    report[label]["packages"] = self.rhnContent.syncPackages(label, 
-                            savePath, self.rhnContent.getVerbose())
+                    report[label]["packages"] = self.rhnSync.syncPackages(label, 
+                            savePath, self.rhnSync.getVerbose())
                 elif self.options.kickstarts:
-                    report[label]["kickstarts"] = self.rhnContent.syncKickstarts(label, 
-                            savePath, self.rhnContent.getVerbose())
+                    report[label]["kickstarts"] = self.rhnSync.syncKickstarts(label, 
+                            savePath, self.rhnSync.getVerbose())
             for r in report:
                 print "%s packages = %s" % (r, report[r]["packages"])
                 if report[r].has_key("kickstarts"):
                     print "%s packages = %s" % (r, report[r]["kickstarts"])
 
     def stop(self):
-        self.rhnContent.stop()
+        self.rhnSync.stop()
 
 
 class RepoDriver(CliDriver):

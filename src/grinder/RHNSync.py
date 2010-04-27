@@ -46,18 +46,22 @@ from GrinderExceptions import *
 from SatDumpClient import SatDumpClient
 from RHNComm import RHNComm
 
-LOG = logging.getLogger("grinder")
+LOG = logging.getLogger("RHNSync")
 
-class RHNFetch:
+class RHNSync:
     def __init__(self):
         self.baseURL = "https://satellite.rhn.redhat.com"
-        self.certFile = "/etc/sysconfig/rhn/entitlement-cert.xml"
-        self.cert = None
         try:
-            self.systemidFile = "/etc/sysconfig/rhn/systemid"
-            self.systemid = open(self.systemidFile, 'r').read()
+            certFile = "/etc/sysconfig/rhn/entitlement-cert.xml"
+            self.cert = open(certFile, 'r').read()
         except:
-            LOG.info("Unable to read systemid from %s" % (self.systemidFile))
+            LOG.debug("Unable to read cert from %s" % (certFile))
+            self.cert = None
+        try:
+            systemidFile = "/etc/sysconfig/rhn/systemid"
+            self.systemid = open(systemidFile, 'r').read()
+        except:
+            LOG.debug("Unable to read systemid from %s" % (systemidFile))
             self.systemid = None
         self.username = None
         self.password = None
@@ -75,33 +79,33 @@ class RHNFetch:
         self.channelSyncList = []
         self.verbose = False
 
+    def setPassword(self, pword):
+        LOG.debug("setPassword(%s)" % (pword))
+        self.password = pword
+
+    def getPassword(self):
+        return self.password
+
+    def setUsername(self, uname):
+        LOG.debug("setUsername(%s)" % (uname))
+        self.username = uname
+
+    def getUsername(self):
+        return self.username
+
     def setURL(self, url):
+        LOG.debug("setURL(%s)" % (url))
         self.baseURL = url
 
     def getURL(self):
         return self.baseURL
 
-    def setCertFile(self, certFile):
-        """
-        Expects file to certificate
-        """
-        self.certFile = certFile
-
-    def getCertFile(self):
-        return self.certFile
-
     def setCert(self, cert):
-        """
-        Expects certificate in string format
-        """
+        LOG.debug("setCert(%s)" % (cert))
         self.cert = cert
 
     def getCert(self):
         return self.cert
-
-    def setSystemIdFile(self, f):
-        self.systemidFile = f
-        self.systemid = open(self.systemidFile, 'r').read()
 
     def setSystemId(self, systemid):
         self.systemid = systemid
@@ -110,42 +114,49 @@ class RHNFetch:
         return self.systemid
 
     def setParallel(self, parallel):
+        LOG.debug("setParallel(%s)" % (parallel))
         self.parallel = parallel
 
     def getParallel(self):
         return self.parallel
 
     def setRemoveOldPackages(self, value):
+        LOG.debug("setRemoveOldPackages(%s)" % (value))
         self.removeOldPackages = value
 
     def getRemoveOldPackages(self):
         return self.removeOldPackages
 
+    def setFetchAllPackages(self, val):
+        LOG.debug("setFetchAllPackages(%s)" % (val))
+        self.fetchAll = val
+
     def getFetchAllPackages(self):
         return self.fetchAll
 
-    def setFetchAllPackages(self, val):
-        self.fetchAll = val
+    def setSkipProductList(self, skipProductList):
+        LOG.debug("setSkipProductList(%s)" % (skipProductList))
+        self.skipProductList = skipProductList
 
     def getSkipProductList(self):
         return self.skipProductList
 
-    def setSkipProductList(self, skipProductList):
-        self.skipProductList = skipProductList
+    def setNumOldPackagesToKeep(self, num):
+        LOG.debug("setNumOldPackagesToKeep(%s)" % (num))
+        self.numOldPkgsKeep = num
 
     def getNumOldPackagesToKeep(self):
         return self.numOldPkgsKeep
 
-    def setNumOldPackagesToKeep(self, num):
-        self.numOldPkgsKeep = num
-
     def setBasePath(self, p):
+        LOG.debug("setBasePath(%s)" % (p))
         self.basePath = p
 
     def getBasePath(self):
         return self.basePath
 
     def setVerbose(self, value):
+        LOG.debug("setVerbose(%s)" % (value))
         self.verbose = value
     
     def getVerbose(self):
@@ -175,10 +186,12 @@ class RHNFetch:
             self.setVerbose(configInfo["verbose"])
         if configInfo.has_key("all"):
             self.setFetchAllPackages(configInfo["all"])
-        if configInfo.has_key("cert"):
-            self.setCertFile(configInfo["cert"])
-        if configInfo.has_key("systemid"):
-            self.setSystemIdFile(configInfo["systemid"])
+        if configInfo.has_key("cert") and configInfo["cert"] is not None:
+            cert = open(configInfo["cert"], 'r').read()
+            self.setCert(cert)
+        if configInfo.has_key("systemid") and configInfo["systemid"] is not None:
+            sysid = open(configInfo["systemid"], 'r').read()
+            self.setSystemId(sysid)
         if configInfo.has_key("parallel"):
             self.setParallel(int(configInfo["parallel"]))
         if configInfo.has_key("url"):
@@ -193,7 +206,7 @@ class RHNFetch:
             print "Please remove one of these options and re-try"
             return False
         if configInfo.has_key("basepath"):
-            basepath = configInfo["basepath"]
+            self.setBasePath(configInfo["basepath"])
         if configInfo.has_key("channels"):
             self.setChannelSyncList(configInfo["channels"])
         return True

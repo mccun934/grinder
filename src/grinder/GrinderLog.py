@@ -19,9 +19,12 @@ from logging.handlers import RotatingFileHandler
 
 GRINDER_LOG_FILENAME = "./log-grinder.out"
 LOG = logging.getLogger("grinder")
-
+G_LOGGER_LOADED = False
 def setup(verbose):
-
+    global G_LOGGER_LOADED
+    # Only load logger once
+    if G_LOGGER_LOADED:
+        return
     logging.basicConfig(filename=GRINDER_LOG_FILENAME, level=logging.DEBUG,
                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M', filemode='w')
@@ -36,3 +39,4 @@ def setup(verbose):
     handler.setFormatter(formatter)
     console.setFormatter(formatter)
     logging.getLogger('').addHandler(console)
+    G_LOGGER_LOADED = True
