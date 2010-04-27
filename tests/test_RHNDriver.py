@@ -42,14 +42,20 @@ class TestRHNDriver(unittest.TestCase):
         url = "https://testFromCLIOptions.com"
         parallel = 299
         basePath = "/fromCLI/base/path"
-        certFile = "/tmp/randomCertFile.grinderTests"
         testPassword = "testPassword"
         testUsername = "testUsername"
         testRemoveold = False
+        certFile = "/tmp/randomCertFile.grinderTests"
         f = open(certFile, 'w')
         testCertData = "This is a test of cert data from the CLI"
         f.write(testCertData)
         f.close()
+        sysIdFile = "/tmp/randomSysIdFile.grinderTests"
+        f = open(sysIdFile, 'w')
+        testSysIdData = "This is a test of sysId data from the CLI"
+        f.write(testSysIdData)
+        f.close()
+
         sys.argv = []
         sys.argv.append("./GrinderCLI.py")
         sys.argv.append("rhn")
@@ -63,6 +69,8 @@ class TestRHNDriver(unittest.TestCase):
         sys.argv.append(parallel)
         sys.argv.append("--basepath")
         sys.argv.append(basePath)
+        sys.argv.append("--systemid")
+        sys.argv.append(sysIdFile)
         sys.argv.append("--cert")
         sys.argv.append(certFile)
         sys.argv.append("--password")
@@ -71,20 +79,24 @@ class TestRHNDriver(unittest.TestCase):
             sys.argv.append("--removeold")
         sys.argv.append("--username")
         sys.argv.append(testUsername)
-        rhnDriver = RHNDriver()
-        # We want to fake out _do_command, i.e. don't try to sync any channels
-        setattr(rhnDriver, "_do_command", noOp)
-        rhnDriver.main()
-        rhnDriver._validate_options()
-        self.assertEquals(rhnDriver.rhnSync.getFetchAllPackages(), testAll)
-        self.assertEquals(rhnDriver.rhnSync.getURL(), url)
-        self.assertEquals(rhnDriver.rhnSync.getParallel(), parallel)
-        self.assertEquals(rhnDriver.rhnSync.getBasePath(), basePath)
-        self.assertEquals(rhnDriver.rhnSync.getCert(), testCertData)
-        self.assertEquals(rhnDriver.rhnSync.getPassword(), testPassword)
-        self.assertEquals(rhnDriver.rhnSync.getRemoveOldPackages(), testRemoveold)
-        self.assertEquals(rhnDriver.rhnSync.getUsername(), testUsername)
-        os.remove(certFile)
+        try:
+            rhnDriver = RHNDriver()
+            # We want to fake out _do_command, i.e. don't try to sync any channels
+            setattr(rhnDriver, "_do_command", noOp)
+            rhnDriver.main()
+            rhnDriver._validate_options()
+            self.assertEquals(rhnDriver.rhnSync.getFetchAllPackages(), testAll)
+            self.assertEquals(rhnDriver.rhnSync.getURL(), url)
+            self.assertEquals(rhnDriver.rhnSync.getParallel(), parallel)
+            self.assertEquals(rhnDriver.rhnSync.getBasePath(), basePath)
+            self.assertEquals(rhnDriver.rhnSync.getSystemId(), testSysIdData)
+            self.assertEquals(rhnDriver.rhnSync.getCert(), testCertData)
+            self.assertEquals(rhnDriver.rhnSync.getPassword(), testPassword)
+            self.assertEquals(rhnDriver.rhnSync.getRemoveOldPackages(), testRemoveold)
+            self.assertEquals(rhnDriver.rhnSync.getUsername(), testUsername)
+        finally:
+            os.remove(certFile)
+            os.remove(sysIdFile)
 
 if __name__ == "__main__":
     unittest.main()
