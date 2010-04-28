@@ -151,7 +151,7 @@ class RHNDriver(CliDriver):
                 if not self.options.skippackages:
                     report[label]["packages"] = self.rhnSync.syncPackages(label, 
                             savePath, self.rhnSync.getVerbose())
-                elif self.options.kickstarts:
+                if self.options.kickstarts:
                     report[label]["kickstarts"] = self.rhnSync.syncKickstarts(label, 
                             savePath, self.rhnSync.getVerbose())
             for r in report:
