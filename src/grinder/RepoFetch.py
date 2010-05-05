@@ -103,6 +103,7 @@ class RepoFetch(object):
                     self.deltamd = destfile 
             except:
                 LOG.error("Unable to Fetch Repo data file %s" % ftype)
+        shutil.copyfile(self.repo_dir + "/repomd.xml", "%s/%s" % (local_repo_path, "repomd.xml"))
         LOG.info("Fetched repo metadata for %s" % self.repo_label)
 
     def validatePackage(self, fo, pkg, fail):
