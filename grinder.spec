@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.32
+Version: 0.0.33
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -45,6 +45,30 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed May 05 2010 Mike McCune <mmccune@redhat.com> 0.0.33-1
+- copy repomd.xml to the repodata directory (pkilambi@redhat.com)
+- update for kickstart syncs (jwmatthews@gmail.com)
+- add check for systemid and ensure we cleanup test cert/systemid
+  (jwmatthews@gmail.com)
+- adding unittests for RHNSync parsing configfile and reading options from
+  command line (jwmatthews@gmail.com)
+- rename RHNContent to RHNFetch (jwmatthews@gmail.com)
+- adding 'rhn' operation to GrinderCLI  - options are initialized in order of
+  Defaults, Config File, CLI  - basic package syncing has been tested  - needs
+  exhaustive testing with different option combinations (jwmatthews@gmail.com)
+- minor fixes after testing presto stuff (pkilambi@redhat.com)
+- Support to sync down delta rpms metadata and corresponding binaries for a
+  given repo if available. (pkilambi@redhat.com)
+- Fetch the repodata generically so we can support presto metadata if available
+  (pkilambi@redhat.com)
+- some useful logging info on fetch (pkilambi@redhat.com)
+- including logrotate in logger class (pkilambi@redhat.com)
+- new Grinder CLI architecture with yum repo sync cli integrated and functional
+  (pkilambi@redhat.com)
+- clean up (pkilambi@redhat.com)
+- Adding a module to support content fetch from a yum repo url. CLI integration
+  follows (pkilambi@redhat.com)
+
 * Thu Apr 08 2010 John Matthews <jwmatthews@gmail.com> 0.0.32-1
 - fixing typeError in log statement cauusing createrepo to fail
   (pkilambi@redhat.com)
