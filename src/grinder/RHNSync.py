@@ -374,6 +374,9 @@ class RHNSync:
             LOG.info("Remove old packages from %s" % (savePath))
 
             self.runRemoveOldPackages(savePath)
+        self.createRepo(savePath)
+        self.updateRepo(os.path.join(savePath,"updateinfo.xml"),
+                os.path.join(savePath,"repodata/"))
         return report
     
     def fetchCompsXML(self, savePath, channelLabel):
