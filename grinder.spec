@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.34
+Version: 0.0.35
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -46,7 +46,7 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Thu May 06 2010 Pradeep Kilambi <pkilambi@redhat.com> 0.0.34-1
+* Thu May 06 2010 Pradeep Kilambi <pkilambi@redhat.com> 0.0.35-1
 - Adding support to fetch content by passing in ssl ca and content certs via
   yum for metadata and pycurl to fetch the bits (pkilambi@redhat.com)
 
