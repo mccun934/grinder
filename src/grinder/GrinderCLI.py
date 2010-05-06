@@ -176,6 +176,12 @@ class RepoDriver(CliDriver):
                           help="Repo label")
         self.parser.add_option("--url", dest="url",
                           help="Repo URL to fetch the content bits.")
+        self.parser.add_option("--cacert", dest="cacert",
+                          help="Path location to CA Certificate.")
+        self.parser.add_option("--clicert", dest="clicert",
+                          help="Path location to Client SSl Certificate.")
+        self.parser.add_option("--clikey", dest="clikey",
+                          help="Path location to Client Certificate Key.")
         self.parser.add_option("--parallel", dest="parallel",
                           help="Thread count to fetch the bits in parallel. Defaults to 5")
         self.parser.add_option("--dir", dest="dir",
@@ -198,7 +204,12 @@ class RepoDriver(CliDriver):
         Executes the command.
         """
         self._validate_options()
-        self.yfetch = YumRepoGrinder(self.options.label, self.options.url, \
+        if self.options.cacert and self.options.clicert and self.options.clikey:
+            self.yfetch = YumRepoGrinder(self.options.label, self.options.url, \
+                                self.parallel, cacert=self.options.cacert, \
+                                clicert=self.options.clicert, clikey=self.options.clikey)
+        else:
+            self.yfetch = YumRepoGrinder(self.options.label, self.options.url, \
                                 self.parallel)
         if self.options.dir:
             self.yfetch.fetchYumRepo(self.options.dir)
@@ -309,7 +320,3 @@ if __name__ == "__main__":
         sys.exit(abs(CLI().main() or 0))
     except KeyboardInterrupt:
         systemExit(0, "\nUser interrupted process.")
-    except Exception, e:
-        tb_info = traceback.format_exc()
-        systemExit(1, tb_info)
-

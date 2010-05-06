@@ -20,10 +20,9 @@
 import os
 import yum
 import time
-import urllib
-import urlparse
 import logging
 import shutil
+import pycurl
 
 from PrestoParser import PrestoParser
 from ParallelFetch import ParallelFetch
@@ -34,12 +33,16 @@ class RepoFetch(object):
     """
      Module to fetch content from remote yum repos
     """
-    def __init__(self, repo_label, repourl, mirrorlist=None, download_dir='./'):
+    def __init__(self, repo_label, repourl, cacert=None, clicert=None, clikey=None, 
+                 mirrorlist=None, download_dir='./'):
         self.repo_label = repo_label
         self.repourl = repourl
         self.mirrorlist = mirrorlist
         self.local_dir = download_dir
         self.repo_dir = os.path.join(self.local_dir, self.repo_label)
+        self.sslcacert = cacert
+        self.sslclientcert = clicert
+        self.sslclientkey = clikey
 
     def setupRepo(self):
         self.repo = yum.yumRepo.YumRepository(self.repo_label)
@@ -54,6 +57,10 @@ class RepoFetch(object):
         self.repo.dirSetup()
         self.repo.setup(False)
         self.deltamd = None
+        self.repo.sslcacert = self.sslcacert
+        self.repo.sslclientcert = self.sslclientcert
+        self.repo.sslclientkey = self.sslclientkey
+        self.repo.sslverify = 1
 
     def getPackageList(self, newest=False):
         sack = self.repo.getPackageSack()
@@ -72,8 +79,19 @@ class RepoFetch(object):
 
     def fetchItem(self, downloadinfo):
         LOG.info("Fetching Package URL - [%s]" % downloadinfo['downloadurl'])
-        urllib.urlretrieve(downloadinfo['downloadurl'], \
-                           downloadinfo['savepath'])
+        f = open(downloadinfo['savepath'], "wb")
+        curl = pycurl.Curl()
+        curl.setopt(curl.VERBOSE,0)
+        curl.setopt(curl.URL, str(downloadinfo['downloadurl']))
+        if self.sslcacert and self.sslclientcert and self.sslclientkey:
+            curl.setopt(curl.CAINFO, self.sslcacert)
+            curl.setopt(curl.SSLCERT, self.sslclientcert)
+            curl.setopt(curl.SSLKEY, self.sslclientkey)
+        curl.setopt(curl.WRITEFUNCTION, f.write)
+        curl.setopt(curl.FOLLOWLOCATION, 1)
+        curl.perform()
+        curl.close()
+        f.close()
 
     def fetchAll(self):
         plist = self.getPackageList()
@@ -113,7 +131,8 @@ class YumRepoGrinder(object):
     """
       Driver module to initiate the repo fetching
     """
-    def __init__(self, repo_label, repo_url, parallel, mirrors=None):
+    def __init__(self, repo_label, repo_url, parallel, mirrors=None, \
+                       cacert=None, clicert=None, clikey=None):
         self.repo_label = repo_label
         self.repo_url = repo_url
         self.mirrors = mirrors
@@ -121,14 +140,16 @@ class YumRepoGrinder(object):
         self.fetchPkgs = None
         self.downloadinfo = []
         self.yumFetch = None
+        self.sslcacert = cacert
+        self.sslclientcert = clicert
+        self.sslclientkey = clikey
 
     def prepareRPMS(self):
         pkglist = self.yumFetch.getPackageList()
         for pkg in pkglist:
             info = {}
-            info['downloadurl'] = urlparse.urljoin(self.yumFetch.repourl, \
-                                                   pkg.relativepath, \
-                                                   "packages")
+            #urljoin doesnt like epoch in rpm name so using string concat
+            info['downloadurl'] = self.yumFetch.repourl + '/' + pkg.relativepath
             info['savepath'] = os.path.join(self.yumFetch.repo_dir, pkg.__str__() + ".rpm")
             self.downloadinfo.append(info)
         LOG.info("%s packages have been marked to be fetched" % len(pkglist))
@@ -147,7 +168,7 @@ class YumRepoGrinder(object):
         for dpkg in deltarpms:
             info = {}
             relativepath = dpkg.deltas.values()[0].filename
-            info['downloadurl'] = urlparse.urljoin(self.yumFetch.repourl, relativepath)
+            info['downloadurl'] = self.yumFetch.repourl + '/' + relativepath
             info['savepath'] = os.path.join(drpmpath, os.path.basename(relativepath))
             self.downloadinfo.append(info)
         LOG.info("%s delta rpms have been marked to be fetched" % len(deltarpms))
@@ -155,7 +176,9 @@ class YumRepoGrinder(object):
     def fetchYumRepo(self, basepath="./"):
         startTime = time.time()
         self.yumFetch = RepoFetch(self.repo_label, repourl=self.repo_url, \
-                            mirrorlist=self.mirrors, download_dir=basepath)
+                            cacert=self.sslcacert, clicert=self.sslclientcert, \
+                            clikey=self.sslclientkey, mirrorlist=self.mirrors, \
+                            download_dir=basepath)
         self.yumFetch.setupRepo()
         # first fetch the metadata
         self.yumFetch.getRepoData()
