@@ -75,7 +75,7 @@ class RHNSync:
         self.removeOldPackages = False
         self.numOldPkgsKeep = 1
         self.rhnComm = None
-        self.basePath = "./"
+        self.basePath = None
         self.channelSyncList = []
         self.verbose = False
 
@@ -305,9 +305,13 @@ class RHNSync:
     def syncKickstarts(self, channelLabel, savePath, verbose=0):
         """
         channelLabel - channel to sync kickstarts from
-        savePath - path to save kickstarts
+        savePath - path to save kickstarts, relative to basePath if basePath has been set
         verbose - if true display more output
         """
+        if self.getBasePath():
+            savePath = os.path.join(self.getBasePath(), savePath)
+            LOG.info("Adjusting save path to: %s" % (savePath))
+
         startTime = time.time()
         satDump = SatDumpClient(self.baseURL, verbose=verbose)
         ksLabels = satDump.getKickstartLabels(self.systemid, [channelLabel])
@@ -342,9 +346,12 @@ class RHNSync:
     def syncPackages(self, channelLabel, savePath, verbose=0):
         """
         channelLabel - channel to sync packages from
-        savePath - path to save packages
+        savePath - path to save packages, relative to basePath if basePath has been set
         verbose - if true display more output
         """
+        if self.getBasePath():
+            savePath = os.path.join(self.getBasePath(), savePath)
+            LOG.info("Adjusting save path to: %s" % (savePath))
         startTime = time.time()
         if channelLabel == "":
             LOG.critical("No channel label specified to sync, abort sync.")
@@ -522,173 +529,4 @@ class RHNSync:
         LOG.info("updaterepo on %s finished in %s seconds" % (repopath, (endTime-startTime)))
         return status, out
 
-
-def main():
-    LOG.debug("Main executed")
-    processCommandline()
-    verbose = OPTIONS.verbose
-    setupLogging(verbose)
-    
-    configFile = OPTIONS.config
-    configInfo = {}
-    if os.path.isfile(configFile):
-        try:
-            import yaml
-            raw = open(configFile).read()
-            configInfo = yaml.load(raw)
-        except ImportError:
-            LOG.critical("Unable to load python module 'yaml'.")
-            LOG.critical("Unable to parse config file: %s. Using command line options only." % (configFile))
-            configInfo = {}
-        except Exception, e:
-            LOG.critical("Exception: %s" % (e))
-            LOG.critical("Unable to parse config file: %s. Using command line options only." % (configFile))
-            configInfo = {}
-    else:
-        LOG.info("Unable to read configuration file: %s" % (configFile))
-        LOG.info("Will run with command line options only.")
-
-    if OPTIONS.all:
-        allPackages = OPTIONS.all
-    elif configInfo.has_key("all"):
-        allPackages = configInfo["all"]
-    else:
-        allPackages = False
-    LOG.debug("allPackages = %s" % (allPackages))
-
-    if OPTIONS.username:
-        username = OPTIONS.username
-    else:
-        username = None
-    LOG.debug("username = %s" % (username))
-
-    if OPTIONS.password:
-        password = OPTIONS.password
-        LOG.debug("password = from command line")
-    else:
-        password = None
-        LOG.debug("password never specified")
-
-    if OPTIONS.cert:
-        cert = OPTIONS.cert
-    elif configInfo.has_key("cert"):
-        cert = configInfo["cert"]
-    else:
-        cert = "/etc/sysconfig/rhn/entitlement-cert.xml"
-    LOG.debug("cert = %s" % (cert))
-
-    if OPTIONS.systemid:
-        systemid = OPTIONS.systemid
-    elif configInfo.has_key("systemid"):
-        systemid = configInfo["systemid"]
-    else:
-        systemid = "/etc/sysconfig/rhn/systemid"
-    LOG.debug("systemid = %s" % (systemid))
-
-    if OPTIONS.parallel:
-        parallel = int(OPTIONS.parallel)
-    elif configInfo.has_key("parallel"):
-        parallel = int(configInfo["parallel"])
-    else:
-        parallel = 5
-    LOG.debug("parallel = %s" % (parallel))
-
-    if OPTIONS.url:
-        url = OPTIONS.url
-    elif configInfo.has_key("url"):
-        url = configInfo["url"]
-    else:
-        url = "https://satellite.rhn.redhat.com"
-    LOG.debug("url = %s" % (url))
-
-    if OPTIONS.removeold:
-        removeold = OPTIONS.removeold
-    elif configInfo.has_key("removeold"):
-        removeold = configInfo["removeold"]
-    else:
-        removeold = False
-    LOG.debug("removeold = %s" % (removeold))
-
-    numOldPkgsKeep = 0
-    if configInfo.has_key("num_old_pkgs_keep"):
-        numOldPkgsKeep = int(configInfo["num_old_pkgs_keep"])
-    LOG.debug("numOldPkgsKeep = %s" % (numOldPkgsKeep))
-
-    if allPackages and removeold:
-        print "Conflicting options specified.  Fetch ALL packages AND remove older packages."
-        print "This combination of options is not supported."
-        print "Please remove one of these options and re-try"
-        sys.exit(1)
-
-    if OPTIONS.basepath:
-        basepath = OPTIONS.basepath
-    elif configInfo.has_key("basepath"):
-        basepath = configInfo["basepath"]
-    else:
-        basepath = "./"
-    LOG.debug("basepath = %s" % (basepath))
-
-    channelLabels = {}
-    if len(args) > 0:
-        # CLI overrides config file, so if channels are specified on CLI
-        # that is all we will sync
-        for a in args:
-            channelLabels[a] = a
-        # FOR CLI syncing of channels, override basePath to ignore config file
-        # Result is channels get synced to CLI "-b" option or ./channel-label
-        if OPTIONS.basepath:
-            basepath = OPTIONS.basepath
-        else:
-            basepath = "./"
-    else:
-        if configInfo.has_key("channels"):
-            channels = configInfo["channels"]
-            for c in channels:
-                channelLabels[c['label']] = c['relpath']
-
-
-    listchannels = OPTIONS.listchannels
-    global GRINDER 
-    GRINDER = Grinder(url, username, password, cert, 
-        systemid, parallel, verbose)
-    GRINDER.setFetchAllPackages(allPackages)
-    GRINDER.setRemoveOldPackages(removeold)
-    GRINDER.setSkipProductList(["rh-public", "k12ltsp", "education"])
-    GRINDER.setNumOldPackagesToKeep(numOldPkgsKeep)
-    GRINDER.activate()
-    if (listchannels):
-        GRINDER.displayListOfChannels()
-        sys.exit(0)
-    badChannels = GRINDER.checkChannels(channelLabels.keys())
-    for b in badChannels:
-        print "'%s' can not be found as a channel available to download" % (b)
-    if len(badChannels) > 0:
-        sys.exit(1)
-    if len(channelLabels.keys()) < 1:
-        print "No channels specified to sync"
-        sys.exit(1)
-    for cl in channelLabels.keys():
-        dirPath = os.path.join(basepath, channelLabels[cl])
-        if OPTIONS.skippackages == False:
-            LOG.info("Syncing '%s' to '%s'" % (cl, dirPath))
-            startTime = time.time()
-            reportPkgs = GRINDER.syncPackages(cl, dirPath, verbose=verbose)
-            endTime = time.time()
-            pkgTime = endTime - startTime
-            if (GRINDER.killcount == 0):
-                LOG.info("Sync completed, running createrepo")
-                GRINDER.createRepo(dirPath)
-                # Update the repodata to include updateinfo
-                GRINDER.updateRepo(os.path.join(dirPath,"updateinfo.xml"), os.path.join(dirPath,"repodata/"))
-        if OPTIONS.kickstarts and GRINDER.killcount == 0:
-            startTime = time.time()
-            reportKSs = GRINDER.syncKickstarts(cl, dirPath, verbose=verbose)
-            endTime = time.time()
-            ksTime = endTime - startTime
-        if OPTIONS.skippackages == False:
-            LOG.info("Summary: Packages = %s in %s seconds" % (reportPkgs, pkgTime))
-        if OPTIONS.kickstarts:
-            LOG.info("Summary: Kickstarts = %s in %s seconds" % (reportKSs, ksTime))
-if __name__ == "__main__":
-    main()
 

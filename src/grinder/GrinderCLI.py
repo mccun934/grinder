@@ -141,6 +141,8 @@ class RHNDriver(CliDriver):
                 LOG.critical("Bad channel labels: %s" % (badChannels))
                 systemExit(1, "Please correct the channel labels in: %s, then re-run" % (self.options.config))
             basePath = self.rhnSync.getBasePath()
+            if not basePath:
+                basePath = "./"
             for c in self.args:
                 channels.append({'label':c, 'relpath':os.path.join(basePath,c)})
             report = {}
