@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.36
+Version: 0.0.37
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -46,6 +46,10 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon May 10 2010 John Matthews <jwmatthews@gmail.com> 0.0.37-1
+- fix for basePath being used when set in config file and cleanup of unused
+  "main" method (jwmatthews@gmail.com)
+
 * Thu May 06 2010 John Matthews <jwmatthews@gmail.com> 0.0.36-1
 - add createRepo/updateRepo calls to syncPackages() (jwmatthews@gmail.com)
 
