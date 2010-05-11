@@ -119,6 +119,8 @@ class RHNDriver(CliDriver):
             self.rhnSync.setParallel(self.options.parallel)
         if self.options.debug:
             self.rhnSync.setVerbose(self.options.debug)
+        if self.options.removeold:
+            self.rhnSync.setRemoveOldPackages(self.options.removeold)
 
     def _do_command(self):
         """
