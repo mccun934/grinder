@@ -159,7 +159,8 @@ class RHNDriver(CliDriver):
                     report[label]["kickstarts"] = self.rhnSync.syncKickstarts(label, 
                             savePath, self.rhnSync.getVerbose())
             for r in report:
-                print "%s packages = %s" % (r, report[r]["packages"])
+                if report[r].has_key("packages"):
+                    print "%s packages = %s" % (r, report[r]["packages"])
                 if report[r].has_key("kickstarts"):
                     print "%s packages = %s" % (r, report[r]["kickstarts"])
 
