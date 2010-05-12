@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.37
+Version: 0.0.38
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -46,6 +46,16 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed May 12 2010 Pradeep Kilambi <pkilambi@redhat.com> 0.0.38-1
+- log tracebacks for debug purposes (pkilambi@redhat.com)
+- RepoFecth now validates existing packages and only fetches new ones. Added a
+  new utils module for common calls (pkilambi@redhat.com)
+- fix typo for 'packages' instead of 'kickstarts' (jwmatthews@gmail.com)
+- bz591120 - running grinder with -k and -K results in error
+  (jwmatthews@gmail.com)
+- move 'removeold' functionality to BaseSync, add in CLI option for 'removeold'
+  (jwmatthews@gmail.com)
+
 * Mon May 10 2010 John Matthews <jwmatthews@gmail.com> 0.0.37-1
 - fix for basePath being used when set in config file and cleanup of unused
   "main" method (jwmatthews@gmail.com)
