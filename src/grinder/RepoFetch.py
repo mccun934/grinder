@@ -26,7 +26,7 @@ import pycurl
 
 from PrestoParser import PrestoParser
 from ParallelFetch import ParallelFetch
-
+from GrinderUtils import validateDownload, verifyChecksum 
 LOG = logging.getLogger("RepoFetch")
 
 class RepoFetch(object):
@@ -77,21 +77,28 @@ class RepoFetch(object):
         sack = PrestoParser(self.deltamd).getDeltas()
         return sack.values()
 
-    def fetchItem(self, downloadinfo):
-        LOG.info("Fetching Package URL - [%s]" % downloadinfo['downloadurl'])
-        f = open(downloadinfo['savepath'], "wb")
-        curl = pycurl.Curl()
-        curl.setopt(curl.VERBOSE,0)
-        curl.setopt(curl.URL, str(downloadinfo['downloadurl']))
-        if self.sslcacert and self.sslclientcert and self.sslclientkey:
-            curl.setopt(curl.CAINFO, self.sslcacert)
-            curl.setopt(curl.SSLCERT, self.sslclientcert)
-            curl.setopt(curl.SSLKEY, self.sslclientkey)
-        curl.setopt(curl.WRITEFUNCTION, f.write)
-        curl.setopt(curl.FOLLOWLOCATION, 1)
-        curl.perform()
-        curl.close()
-        f.close()
+    def fetchItem(self, downloadinfo):            
+        try:
+            f = open(downloadinfo['savepath'], "wb")
+            curl = pycurl.Curl()
+            curl.setopt(curl.VERBOSE,0)
+            curl.setopt(curl.URL, str(downloadinfo['downloadurl']))
+            if self.sslcacert and self.sslclientcert and self.sslclientkey:
+                curl.setopt(curl.CAINFO, self.sslcacert)
+                curl.setopt(curl.SSLCERT, self.sslclientcert)
+                curl.setopt(curl.SSLKEY, self.sslclientkey)
+            curl.setopt(curl.WRITEFUNCTION, f.write)
+            curl.setopt(curl.FOLLOWLOCATION, 1)
+            curl.perform()
+            curl.close()
+            f.close()
+            validateDownload(downloadinfo['savepath'],
+                             downloadinfo['size'],
+                             downloadinfo['checksumtype'], 
+                             downloadinfo['checksum'])
+            LOG.info("Successfully Fetched Package - [%s]" % downloadinfo['savepath'])
+        except Exception, e:
+            LOG.error("Failed to fetch URL [%s]" % downloadinfo['downloadurl'])
 
     def fetchAll(self):
         plist = self.getPackageList()
@@ -122,7 +129,7 @@ class RepoFetch(object):
             except:
                 LOG.error("Unable to Fetch Repo data file %s" % ftype)
         shutil.copyfile(self.repo_dir + "/repomd.xml", "%s/%s" % (local_repo_path, "repomd.xml"))
-        LOG.info("Fetched repo metadata for %s" % self.repo_label)
+        LOG.debug("Fetched repo metadata for %s" % self.repo_label)
 
     def validatePackage(self, fo, pkg, fail):
         return pkg.verifyLocalPkg()
@@ -149,8 +156,17 @@ class YumRepoGrinder(object):
         for pkg in pkglist:
             info = {}
             #urljoin doesnt like epoch in rpm name so using string concat
+            info['fileName'] = pkg.__str__() + ".rpm"
             info['downloadurl'] = self.yumFetch.repourl + '/' + pkg.relativepath
             info['savepath'] = os.path.join(self.yumFetch.repo_dir, pkg.__str__() + ".rpm")
+            info['checksumtype'], info['checksum'], status = pkg.checksums[0]
+            info['size'] = pkg.size
+            if os.path.exists(info['savepath']) and \
+                verifyChecksum(info['savepath'], 
+                               info['checksumtype'], 
+                               info['checksum']):
+                LOG.info("%s exists with correct size and md5sum, no need to fetch." % (info['savepath']))
+                continue
             self.downloadinfo.append(info)
         LOG.info("%s packages have been marked to be fetched" % len(pkglist))
 
@@ -180,8 +196,10 @@ class YumRepoGrinder(object):
                             clikey=self.sslclientkey, mirrorlist=self.mirrors, \
                             download_dir=basepath)
         self.yumFetch.setupRepo()
+        LOG.info("Fetching repo metadata...")
         # first fetch the metadata
         self.yumFetch.getRepoData()
+        LOG.info("Determining downloadable Content bits...")
         # get rpms to fetch
         self.prepareRPMS()
         # get drpms to fetch
@@ -201,6 +219,6 @@ class YumRepoGrinder(object):
             self.fetchPkgs.stop()
 
 if __name__ == "__main__":
-    yfetch = YumRepoGrinder("centos-5", \
-        "http://mirrors.kernel.org/centos/5/os/x86_64/", 20)
+    yfetch = YumRepoGrinder("fedora12", \
+        "http://download.fedora.devel.redhat.com/pub/fedora/linux/releases/12/Everything/x86_64/os/", 20)
     yfetch.fetchYumRepo()
