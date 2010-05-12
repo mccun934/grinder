@@ -162,7 +162,7 @@ class RHNDriver(CliDriver):
                 if report[r].has_key("packages"):
                     print "%s packages = %s" % (r, report[r]["packages"])
                 if report[r].has_key("kickstarts"):
-                    print "%s packages = %s" % (r, report[r]["kickstarts"])
+                    print "%s kickstarts = %s" % (r, report[r]["kickstarts"])
 
     def stop(self):
         self.rhnSync.stop()
