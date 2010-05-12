@@ -23,6 +23,7 @@ import time
 import logging
 import shutil
 import pycurl
+import traceback
 
 from PrestoParser import PrestoParser
 from ParallelFetch import ParallelFetch
@@ -98,6 +99,8 @@ class RepoFetch(object):
                              downloadinfo['checksum'])
             LOG.info("Successfully Fetched Package - [%s]" % downloadinfo['savepath'])
         except Exception, e:
+            tb_info = traceback.format_exc()
+            LOG.debug("%s" % (tb_info))
             LOG.error("Failed to fetch URL [%s]" % downloadinfo['downloadurl'])
 
     def fetchAll(self):
@@ -126,7 +129,9 @@ class RepoFetch(object):
                 shutil.copyfile(ftypefile, destfile)
                 if ftype == "prestodelta": 
                     self.deltamd = destfile 
-            except:
+            except Exception, e:
+                tb_info = traceback.format_exc()
+                LOG.debug("%s" % (tb_info))
                 LOG.error("Unable to Fetch Repo data file %s" % ftype)
         shutil.copyfile(self.repo_dir + "/repomd.xml", "%s/%s" % (local_repo_path, "repomd.xml"))
         LOG.debug("Fetched repo metadata for %s" % self.repo_label)
