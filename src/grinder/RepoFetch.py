@@ -189,8 +189,18 @@ class YumRepoGrinder(object):
         for dpkg in deltarpms:
             info = {}
             relativepath = dpkg.deltas.values()[0].filename
+            info['fileName'] = dpkg.deltas.values()[0].filename
             info['downloadurl'] = self.yumFetch.repourl + '/' + relativepath
             info['savepath'] = os.path.join(drpmpath, os.path.basename(relativepath))
+            info['checksumtype'] = dpkg.deltas.values()[0].checksum_type
+            info['checksum'] = dpkg.deltas.values()[0].checksum
+            info['size'] = dpkg.deltas.values()[0].size
+            if os.path.exists(info['savepath']) and \
+                verifyChecksum(info['savepath'], 
+                               info['checksumtype'], 
+                               info['checksum']):
+                LOG.info("%s exists with correct size and md5sum, no need to fetch." % (info['savepath']))
+                continue
             self.downloadinfo.append(info)
         LOG.info("%s delta rpms have been marked to be fetched" % len(deltarpms))
 
