@@ -182,6 +182,9 @@ class SatDumpClient(object):
         release_epoch = info["release"] + ":" + info["epoch"]
         return info["name"] + "-" + info["version"] + "-" + release_epoch + "." + info["arch"] + ".rpm"
 
+    def formFileName(self, info):
+        return info["name"] + "-" + info["version"] + "-" + info["release"] + "." + info["arch"] + ".rpm"
+
     def convertPkgShortToDict(self, pkgShort):
         info = {}
         name = pkgShort.getAttribute("name")
@@ -197,6 +200,7 @@ class SatDumpClient(object):
         info["fetch_name"] = self.formFetchName(info)
         nevra = self.formNEVRA(info)
         info["nevra"] = nevra
+        info["filename"] = self.formFileName(info)
         return name, nevra, info
 
 

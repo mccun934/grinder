@@ -32,7 +32,7 @@ class PackageFetch(BaseFetch):
         return "/SAT/$RHN/" + channelLabel + "/getPackage/" + fetchName;
 
     def fetchItem(self, itemInfo):
-        fileName = itemInfo['nevra']
+        fileName = itemInfo['filename']
         fetchName = itemInfo['fetch_name']
         itemSize = itemInfo['package_size']
         md5sum = itemInfo['md5sum']
