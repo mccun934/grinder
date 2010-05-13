@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.39
+Version: 0.0.40
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -47,7 +47,7 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Thu May 13 2010 Pradeep Kilambi <pkilambi@redhat.com> 0.0.39-1
+* Thu May 13 2010 Pradeep Kilambi <pkilambi@redhat.com> 0.0.40-1
 - Adding python-hashlib dependency to grinder (pkilambi@redhat.com)
 - Adding validation for drpms fetch
 
