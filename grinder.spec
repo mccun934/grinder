@@ -16,6 +16,7 @@ BuildRequires: python-setuptools
 Requires:      createrepo, python >= 2.4
 Requires:      PyYAML
 Requires:      python-pycurl
+Requires:      python-hashlib
 %description
 A tool for synching content from the Red Hat Network.
 
