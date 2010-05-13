@@ -2,8 +2,6 @@
 #
 # Copyright (c) 2010 Red Hat, Inc.
 #
-# Authors: John Matthews
-#
 # This software is licensed to you under the GNU General Public License,
 # version 2 (GPLv2). There is NO WARRANTY for this software, express or
 # implied, including the implied warranties of MERCHANTABILITY or FITNESS
@@ -18,18 +16,27 @@
 import logging
 
 from BaseFetch import BaseFetch
+from RHNComm import RHNComm
 LOG = logging.getLogger("KickstartFetch")
+
 
 
 class KickstartFetch(BaseFetch):
 
     def __init__(self, systemId, baseURL):
-        BaseFetch.__init__(self, systemId, baseURL)
+        BaseFetch.__init__(self, baseURL)
+        self.systemId = systemId
+        self.rhnComm = RHNComm(baseURL, self.systemId)
 
+    def login(self, refresh=False):
+        return self.rhnComm.login(refresh)
+    
     def getFetchURL(self, channelLabel, ksLabel, ksFilePath):
         return "/SAT/$RHN/" + channelLabel + "/getKickstartFile/" + ksLabel + "/" + ksFilePath;
 
     def fetchItem(self, itemInfo):
+        authMap = self.login()
+
         fileName = itemInfo['relative-path']
         itemSize = itemInfo['size']
         md5sum = itemInfo['md5sum']
@@ -37,8 +44,12 @@ class KickstartFetch(BaseFetch):
         channelLabel = itemInfo['channelLabel']
         savePath = itemInfo['savePath']
         fetchURL = self.getFetchURL(channelLabel, ksLabel, fileName)
-        return self.fetch(fileName, fetchURL, itemSize, md5sum, savePath)
-
+        status = self.fetch(fileName, fetchURL, itemSize, md5sum, savePath, headers=authMap)
+        if status == BaseFetch.STATUS_UNAUTHORIZED:
+            LOG.warn("Unauthorized request from fetch().  Will attempt to update authentication credentials and retry")
+            authMap = self.login(refresh=True)
+            return self.fetch(fileName, fetchURL, itemSize, md5sum, savePath, headers=authMap)
+        return status
 
 if __name__ == "__main__":
     import grinder

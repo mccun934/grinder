@@ -2,8 +2,6 @@
 #
 # Copyright (c) 2010 Red Hat, Inc.
 #
-# Authors: John Matthews
-#
 # This software is licensed to you under the GNU General Public License,
 # version 2 (GPLv2). There is NO WARRANTY for this software, express or
 # implied, including the implied warranties of MERCHANTABILITY or FITNESS
@@ -18,29 +16,46 @@
 import logging
 
 from BaseFetch import BaseFetch
+from RHNComm import RHNComm
 LOG = logging.getLogger("PackageFetch")
 
 
 class PackageFetch(BaseFetch):
     
     def __init__(self, systemId, baseURL, channelLabel, savePath):
-        BaseFetch.__init__(self, systemId, baseURL)
+        BaseFetch.__init__(self, baseURL)
+        self.systemId = systemId
+        self.rhnComm = RHNComm(baseURL, self.systemId)
         self.channelLabel = channelLabel
         self.savePath = savePath
-    
+
+    def login(self, refresh=False):
+        """
+        Returns authentication headers needed for RHN 'GET' requests.
+        auth data is cached, if data needs to be updated, pass in refresh=True
+        """
+        return self.rhnComm.login(refresh)
+
     def getFetchURL(self, channelLabel, fetchName):
         return "/SAT/$RHN/" + channelLabel + "/getPackage/" + fetchName;
 
     def fetchItem(self, itemInfo):
+        authMap = self.login()
         fileName = itemInfo['filename']
         fetchName = itemInfo['fetch_name']
         itemSize = itemInfo['package_size']
         md5sum = itemInfo['md5sum']
         fetchURL = self.getFetchURL(self.channelLabel, fetchName)
-        return self.fetch(fileName, fetchURL, itemSize, md5sum, self.savePath)
-
+        status = self.fetch(fileName, fetchURL, itemSize, md5sum, self.savePath, headers=authMap)
+        if status == BaseFetch.STATUS_UNAUTHORIZED:
+            LOG.warn("Unauthorized request from fetch().  Will attempt to update authentication credentials and retry")
+            authMap = self.login(refresh=True)
+            return self.fetch(fileName, fetchURL, itemSize, md5sum, self.savePath, headers=authMap)
+        return status
 
 if __name__ == "__main__":
+    import GrinderLog
+    GrinderLog.setup(True)
     systemId = open("/etc/sysconfig/rhn/systemid").read()
     baseURL = "http://satellite.rhn.redhat.com"
     channelLabel = "rhel-i386-server-vt-5"
@@ -51,6 +66,7 @@ if __name__ == "__main__":
     pkg['fetch_name'] = "Virtualization-es-ES-5.2-9:.noarch.rpm"
     pkg['package_size'] = "1731195"
     pkg['md5sum'] = "91b0f20aeeda88ddae4959797003a173" 
+    pkg['filename'] = "Virtualization-es-ES-5.2-9.noarch.rpm"
     status = pf.fetchItem(pkg)
     print "Package fetch status is %s" % (status)
 
