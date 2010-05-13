@@ -49,6 +49,7 @@ rm -rf $RPM_BUILD_ROOT
 %changelog
 * Thu May 13 2010 Pradeep Kilambi <pkilambi@redhat.com> 0.0.39-1
 - Adding python-hashlib dependency to grinder (pkilambi@redhat.com)
+- Adding validation for drpms fetch
 
 * Wed May 12 2010 Pradeep Kilambi <pkilambi@redhat.com> 0.0.38-1
 - log tracebacks for debug purposes (pkilambi@redhat.com)
