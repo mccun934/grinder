@@ -33,7 +33,6 @@ class BaseFetch(object):
     STATUS_UNAUTHORIZED = "unauthorized"
 
     def __init__(self, cacert=None, clicert=None, clikey=None):
-        self.authMap = None
         self.sslcacert = cacert
         self.sslclientcert = clicert
         self.sslclientkey = clikey
