@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.40
+Version: 0.0.41
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -47,6 +47,15 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Fri May 14 2010 John Matthews <jwmatthews@gmail.com> 0.0.41-1
+- Updates for Package/Kickstart fetch to work with changes in BaseFetch Note:
+  RHN comm to https is currently broken, http is working (jwmatthews@gmail.com)
+- Refactor BaseFtech to use pycurl so RHN and yum fetch use the same logic to
+  fetch and validate downloads (pkilambi@redhat.com)
+- refactor, remove rhncomm from BaseFetch (jwmatthews@gmail.com)
+- Fix for kickstarts, need to keep filename same as what RHN uses (don't use
+  epoch in filename) (jwmatthews@gmail.com)
+
 * Thu May 13 2010 Pradeep Kilambi <pkilambi@redhat.com> 0.0.40-1
 - Adding python-hashlib dependency to grinder (pkilambi@redhat.com)
 - Adding validation for drpms fetch
