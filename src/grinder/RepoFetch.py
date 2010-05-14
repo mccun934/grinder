@@ -27,23 +27,22 @@ import traceback
 
 from PrestoParser import PrestoParser
 from ParallelFetch import ParallelFetch
-from GrinderUtils import validateDownload, verifyChecksum 
+from BaseFetch import BaseFetch
+
 LOG = logging.getLogger("RepoFetch")
 
-class RepoFetch(object):
+class RepoFetch(BaseFetch):
     """
      Module to fetch content from remote yum repos
     """
     def __init__(self, repo_label, repourl, cacert=None, clicert=None, clikey=None, 
                  mirrorlist=None, download_dir='./'):
+        BaseFetch.__init__(self, repourl, cacert=cacert, clicert=clicert, clikey=clikey)
         self.repo_label = repo_label
         self.repourl = repourl
         self.mirrorlist = mirrorlist
         self.local_dir = download_dir
         self.repo_dir = os.path.join(self.local_dir, self.repo_label)
-        self.sslcacert = cacert
-        self.sslclientcert = clicert
-        self.sslclientkey = clikey
 
     def setupRepo(self):
         self.repo = yum.yumRepo.YumRepository(self.repo_label)
@@ -77,31 +76,14 @@ class RepoFetch(object):
             return []
         sack = PrestoParser(self.deltamd).getDeltas()
         return sack.values()
-
-    def fetchItem(self, downloadinfo):            
-        try:
-            f = open(downloadinfo['savepath'], "wb")
-            curl = pycurl.Curl()
-            curl.setopt(curl.VERBOSE,0)
-            curl.setopt(curl.URL, str(downloadinfo['downloadurl']))
-            if self.sslcacert and self.sslclientcert and self.sslclientkey:
-                curl.setopt(curl.CAINFO, self.sslcacert)
-                curl.setopt(curl.SSLCERT, self.sslclientcert)
-                curl.setopt(curl.SSLKEY, self.sslclientkey)
-            curl.setopt(curl.WRITEFUNCTION, f.write)
-            curl.setopt(curl.FOLLOWLOCATION, 1)
-            curl.perform()
-            curl.close()
-            f.close()
-            validateDownload(downloadinfo['savepath'],
-                             downloadinfo['size'],
-                             downloadinfo['checksumtype'], 
-                             downloadinfo['checksum'])
-            LOG.info("Successfully Fetched Package - [%s]" % downloadinfo['savepath'])
-        except Exception, e:
-            tb_info = traceback.format_exc()
-            LOG.debug("%s" % (tb_info))
-            LOG.error("Failed to fetch URL [%s]" % downloadinfo['downloadurl'])
+    
+    def fetchItem(self, info):
+        return self.fetch(info['fileName'], 
+                          str(info['downloadurl']), 
+                          info['size'], 
+                          info['checksumtype'], 
+                          info['checksum'],
+                          info['savepath'])
 
     def fetchAll(self):
         plist = self.getPackageList()
@@ -163,15 +145,9 @@ class YumRepoGrinder(object):
             #urljoin doesnt like epoch in rpm name so using string concat
             info['fileName'] = pkg.__str__() + ".rpm"
             info['downloadurl'] = self.yumFetch.repourl + '/' + pkg.relativepath
-            info['savepath'] = os.path.join(self.yumFetch.repo_dir, pkg.__str__() + ".rpm")
+            info['savepath'] = self.yumFetch.repo_dir
             info['checksumtype'], info['checksum'], status = pkg.checksums[0]
             info['size'] = pkg.size
-            if os.path.exists(info['savepath']) and \
-                verifyChecksum(info['savepath'], 
-                               info['checksumtype'], 
-                               info['checksum']):
-                LOG.info("%s exists with correct size and md5sum, no need to fetch." % (info['savepath']))
-                continue
             self.downloadinfo.append(info)
         LOG.info("%s packages have been marked to be fetched" % len(pkglist))
 
@@ -179,28 +155,16 @@ class YumRepoGrinder(object):
         deltarpms = self.yumFetch.getDeltaPackageList()
         if not deltarpms:
             return
-        drpmpath = os.path.join(self.yumFetch.repo_dir, "drpms")
-        if not os.path.exists(drpmpath):
-            try:
-                os.makedirs(drpmpath)
-            except:
-                LOG.error("Unable to create repo directory %s" % drpmpath)
 
         for dpkg in deltarpms:
             info = {}
             relativepath = dpkg.deltas.values()[0].filename
             info['fileName'] = dpkg.deltas.values()[0].filename
             info['downloadurl'] = self.yumFetch.repourl + '/' + relativepath
-            info['savepath'] = os.path.join(drpmpath, os.path.basename(relativepath))
+            info['savepath'] = self.yumFetch.repo_dir
             info['checksumtype'] = dpkg.deltas.values()[0].checksum_type
             info['checksum'] = dpkg.deltas.values()[0].checksum
             info['size'] = dpkg.deltas.values()[0].size
-            if os.path.exists(info['savepath']) and \
-                verifyChecksum(info['savepath'], 
-                               info['checksumtype'], 
-                               info['checksum']):
-                LOG.info("%s exists with correct size and md5sum, no need to fetch." % (info['savepath']))
-                continue
             self.downloadinfo.append(info)
         LOG.info("%s delta rpms have been marked to be fetched" % len(deltarpms))
 
