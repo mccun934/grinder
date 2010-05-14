@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.41
+Version: 0.0.42
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -47,7 +47,7 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Fri May 14 2010 John Matthews <jwmatthews@gmail.com> 0.0.41-1
+* Fri May 14 2010 John Matthews <jwmatthews@gmail.com> 0.0.42-1
 - Updates for Package/Kickstart fetch to work with changes in BaseFetch Note:
   RHN comm to https is currently broken, http is working (jwmatthews@gmail.com)
 - Refactor BaseFtech to use pycurl so RHN and yum fetch use the same logic to
