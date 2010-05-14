@@ -32,9 +32,8 @@ class BaseFetch(object):
     STATUS_ERROR = 'error'
     STATUS_UNAUTHORIZED = "unauthorized"
 
-    def __init__(self, baseURL, cacert=None, clicert=None, clikey=None):
+    def __init__(self, cacert=None, clicert=None, clikey=None):
         self.authMap = None
-        self.baseURL = baseURL
         self.sslcacert = cacert
         self.sslclientcert = clicert
         self.sslclientkey = clikey
@@ -49,7 +48,7 @@ class BaseFetch(object):
             LOG.error("%s size mismatch, read: %s bytes, was expecting %s bytes" \
                       % (fileName, statinfo.st_size, size))
             os.remove(filePath)
-            return BaseFetch.STATUS_MD5_MISSMATCH
+            return BaseFetch.STATUS_SIZE_MISSMATCH
         elif calchecksum != checksum:
             LOG.error("%s md5sum mismatch, read md5sum of: %s expected md5sum of %s" \
                       %(fileName, calchecksum, checksum))
@@ -128,7 +127,6 @@ class BaseFetch(object):
             LOG.debug("Successfully Fetched Package - [%s]" % filePath)
             return vstatus
         except Exception, e:
-            raise
             tb_info = traceback.format_exc()
             LOG.debug("%s" % (tb_info))
             LOG.warn("Caught exception<%s> in fetch(%s, %s)" % (e, fileName, fetchURL))
@@ -186,9 +184,9 @@ if __name__ == "__main__":
     GrinderLog.setup(True)
     systemId = open("/etc/sysconfig/rhn/systemid").read()
     baseURL = "http://satellite.rhn.redhat.com"
-    bf = BaseFetch(baseURL)
+    bf = BaseFetch()
     itemInfo = {}
-    itemInfo['file_name'] = "Virtualization-es-ES-5.2-9.noarch.rpm"
+    fileName = "Virtualization-es-ES-5.2-9.noarch.rpm"
     fetchName = "Virtualization-es-ES-5.2-9:.noarch.rpm"
     channelLabel = "rhel-i386-server-vt-5"
     fetchURL = baseURL + "/SAT/$RHN/" + channelLabel + "/getPackage/" + fetchName;
@@ -199,16 +197,17 @@ if __name__ == "__main__":
     from RHNComm import RHNComm
     rhnComm = RHNComm(baseURL, systemId)
     authMap = rhnComm.login()
-    status = bf.fetch(fetchName, fetchURL, itemSize, hashtype, md5sum, savePath, headers=authMap, retryTimes=2)
+    status = bf.fetch(fileName, fetchURL, itemSize, hashtype, md5sum, savePath, headers=authMap, retryTimes=2)
     print status
     assert(status in [BaseFetch.STATUS_DOWNLOADED, BaseFetch.STATUS_NOOP])
     print "Test Download or NOOP passed"
-    status = bf.fetch(fetchName, fetchURL, itemSize, hashtype, md5sum, savePath, headers=authMap, retryTimes=2)
+    status = bf.fetch(fileName, fetchURL, itemSize, hashtype, md5sum, savePath, headers=authMap, retryTimes=2)
     assert(status == BaseFetch.STATUS_NOOP)
     print "Test for NOOP passed"
     authMap['X-RHN-Auth'] = "Bad Value"
+    fileName = "Virtualization-en-US-5.2-9.noarch.rpm"
     fetchName = "Virtualization-en-US-5.2-9:.noarch.rpm"
-    status = bf.fetch(fetchName, fetchURL, itemSize, hashtype, md5sum, savePath, headers=authMap, retryTimes=2)
+    status = bf.fetch(fileName, fetchURL, itemSize, hashtype, md5sum, savePath, headers=authMap, retryTimes=2)
     print status
     assert(status == BaseFetch.STATUS_UNAUTHORIZED)
     print "Test for unauthorized passed"

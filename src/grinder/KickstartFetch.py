@@ -24,7 +24,8 @@ LOG = logging.getLogger("KickstartFetch")
 class KickstartFetch(BaseFetch):
 
     def __init__(self, systemId, baseURL):
-        BaseFetch.__init__(self, baseURL)
+        BaseFetch.__init__(self)
+        self.baseURL = baseURL
         self.systemId = systemId
         self.rhnComm = RHNComm(baseURL, self.systemId)
 
@@ -32,7 +33,7 @@ class KickstartFetch(BaseFetch):
         return self.rhnComm.login(refresh)
     
     def getFetchURL(self, channelLabel, ksLabel, ksFilePath):
-        return "/SAT/$RHN/" + channelLabel + "/getKickstartFile/" + ksLabel + "/" + ksFilePath;
+        return self.baseURL + "/SAT/$RHN/" + channelLabel + "/getKickstartFile/" + ksLabel + "/" + ksFilePath;
 
     def fetchItem(self, itemInfo):
         authMap = self.login()
@@ -40,11 +41,12 @@ class KickstartFetch(BaseFetch):
         fileName = itemInfo['relative-path']
         itemSize = itemInfo['size']
         md5sum = itemInfo['md5sum']
+        hashType = itemInfo['hashtype']
         ksLabel = itemInfo['ksLabel']
         channelLabel = itemInfo['channelLabel']
         savePath = itemInfo['savePath']
         fetchURL = self.getFetchURL(channelLabel, ksLabel, fileName)
-        status = self.fetch(fileName, fetchURL, itemSize, md5sum, savePath, headers=authMap)
+        status = self.fetch(fileName, fetchURL, itemSize, hashType, md5sum, savePath, headers=authMap)
         if status == BaseFetch.STATUS_UNAUTHORIZED:
             LOG.warn("Unauthorized request from fetch().  Will attempt to update authentication credentials and retry")
             authMap = self.login(refresh=True)
@@ -68,6 +70,7 @@ if __name__ == "__main__":
     item["ksLabel"] = ksLabel
     item["channelLabel"] = channelLabel
     item["savePath"] = savePath
+    item["hashtype"] = "md5"
     status = kf.fetchItem(item)
     assert status in [BaseFetch.STATUS_NOOP, BaseFetch.STATUS_DOWNLOADED]
     print "Kickstart fetch of %s has status %s" % (item['relative-path'], status)
@@ -75,6 +78,7 @@ if __name__ == "__main__":
     badItem['relative-path'] = "EULA"
     badItem['size'] = "8446"
     badItem['md5sum'] = "4cb33358ca64e87f7650525BADbebd67" #intentional bad md5sum
+    badItem['hashtype'] = "md5"
     badItem["ksLabel"] = ksLabel
     badItem["channelLabel"] = channelLabel
     badItem["savePath"] = savePath
@@ -85,6 +89,7 @@ if __name__ == "__main__":
     badItem['relative-path'] = "ClusterStorage/repodata/primary.xml.gz"
     badItem['size'] = "123456" #intentional bad size
     badItem['md5sum'] = "66ab1dd4e02e4e0f8655d3ee2489c18a"
+    badItem['hashtype'] = "md5"
     badItem["ksLabel"] = ksLabel
     badItem["channelLabel"] = channelLabel
     badItem["savePath"] = savePath

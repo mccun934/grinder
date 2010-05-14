@@ -37,7 +37,7 @@ class RepoFetch(BaseFetch):
     """
     def __init__(self, repo_label, repourl, cacert=None, clicert=None, clikey=None, 
                  mirrorlist=None, download_dir='./'):
-        BaseFetch.__init__(self, repourl, cacert=cacert, clicert=clicert, clikey=clikey)
+        BaseFetch.__init__(self, cacert=cacert, clicert=clicert, clikey=clikey)
         self.repo_label = repo_label
         self.repourl = repourl
         self.mirrorlist = mirrorlist

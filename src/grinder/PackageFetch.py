@@ -22,9 +22,11 @@ LOG = logging.getLogger("PackageFetch")
 
 class PackageFetch(BaseFetch):
     
-    def __init__(self, systemId, baseURL, channelLabel, savePath):
-        BaseFetch.__init__(self, baseURL)
+    def __init__(self, systemId, baseURL, channelLabel, savePath, cacert=None):
+        BaseFetch.__init__(self, cacert=cacert)
         self.systemId = systemId
+        self.baseURL = baseURL
+        self.caCert = cacert
         self.rhnComm = RHNComm(baseURL, self.systemId)
         self.channelLabel = channelLabel
         self.savePath = savePath
@@ -37,7 +39,7 @@ class PackageFetch(BaseFetch):
         return self.rhnComm.login(refresh)
 
     def getFetchURL(self, channelLabel, fetchName):
-        return "/SAT/$RHN/" + channelLabel + "/getPackage/" + fetchName;
+        return self.baseURL + "/SAT/$RHN/" + channelLabel + "/getPackage/" + fetchName;
 
     def fetchItem(self, itemInfo):
         authMap = self.login()
@@ -45,8 +47,9 @@ class PackageFetch(BaseFetch):
         fetchName = itemInfo['fetch_name']
         itemSize = itemInfo['package_size']
         md5sum = itemInfo['md5sum']
+        hashType = itemInfo['hashtype']
         fetchURL = self.getFetchURL(self.channelLabel, fetchName)
-        status = self.fetch(fileName, fetchURL, itemSize, md5sum, self.savePath, headers=authMap)
+        status = self.fetch(fileName, fetchURL, itemSize, hashType, md5sum, self.savePath, headers=authMap)
         if status == BaseFetch.STATUS_UNAUTHORIZED:
             LOG.warn("Unauthorized request from fetch().  Will attempt to update authentication credentials and retry")
             authMap = self.login(refresh=True)
@@ -60,12 +63,14 @@ if __name__ == "__main__":
     baseURL = "http://satellite.rhn.redhat.com"
     channelLabel = "rhel-i386-server-vt-5"
     savePath = "./test123"
-    pf = PackageFetch(systemId, baseURL, channelLabel, savePath)
+    caCert = "/usr/share/rhn/RHNS-CA-CERT"
+    pf = PackageFetch(systemId, baseURL, channelLabel, savePath, cacert=caCert)
     pkg = {}
     pkg['nevra'] = "Virtualization-es-ES-5.2-9.noarch.rpm"
     pkg['fetch_name'] = "Virtualization-es-ES-5.2-9:.noarch.rpm"
     pkg['package_size'] = "1731195"
     pkg['md5sum'] = "91b0f20aeeda88ddae4959797003a173" 
+    pkg['hashtype'] = 'md5'
     pkg['filename'] = "Virtualization-es-ES-5.2-9.noarch.rpm"
     status = pf.fetchItem(pkg)
     print "Package fetch status is %s" % (status)

@@ -52,7 +52,7 @@ LOG = logging.getLogger("RHNSync")
 class RHNSync(BaseSync):
     def __init__(self):
         BaseSync.__init__(self)
-        self.baseURL = "https://satellite.rhn.redhat.com"
+        self.baseURL = "http://satellite.rhn.redhat.com"
         try:
             certFile = "/etc/sysconfig/rhn/entitlement-cert.xml"
             self.cert = open(certFile, 'r').read()

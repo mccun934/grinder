@@ -82,6 +82,7 @@ class SatDumpClient(object):
                     #  <rhn-kickstart-file file-size="112" last-modified="1250668122" 
                     #     md5sum="1bbc90ffcc96b5c6edea23876ad80f66" relative-path=".discinfo"/>
                     fileInfo = {}
+                    fileInfo["hashtype"] = "md5"
                     for key in ["file-size", "last-modified", "relative-path", "md5sum"]:
                         fileInfo[key] = f.getAttribute(key)
                     retVal[ksLabel]["files"].append(fileInfo)
@@ -188,6 +189,7 @@ class SatDumpClient(object):
         name = pkgShort.getAttribute("name")
         info["name"] = name
         info["package_size"] = pkgShort.getAttribute("package-size")
+        info["hashtype"] = "md5"
         info["md5sum"] = pkgShort.getAttribute("md5sum")
         info["arch"] = pkgShort.getAttribute("package-arch")
         info["last_modified"] = pkgShort.getAttribute("last-modified")
