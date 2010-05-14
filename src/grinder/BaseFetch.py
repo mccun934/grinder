@@ -38,7 +38,6 @@ class BaseFetch(object):
         self.sslclientkey = clikey
 
     def validateDownload(self, filePath, size, hashtype, checksum, verbose=False):
-
         statinfo = os.stat(filePath)
         fileName = os.path.basename(filePath)
         calchecksum = getFileChecksum(hashtype, filename=filePath)
@@ -138,6 +137,8 @@ class BaseFetch(object):
 def getFileChecksum(hashtype, filename=None, fd=None, file=None, buffer_size=None):
     """ Compute a file's checksum
     """
+    if hashtype in ['sha', 'SHA']:
+        hashtype = 'sha1'
 
     if buffer_size is None:
         buffer_size = 65536
