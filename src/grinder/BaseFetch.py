@@ -21,6 +21,8 @@ import pycurl
 import logging
 import traceback
 import hashlib
+import types
+import unicodedata
 
 LOG = logging.getLogger("BaseFetch")
 
@@ -87,6 +89,9 @@ class BaseFetch(object):
             f = open(filePath, "wb")
             curl = pycurl.Curl()
             curl.setopt(curl.VERBOSE,0)
+            if type(fetchURL) == types.UnicodeType:
+                #pycurl does not accept unicode strings for a URL, so we need to convert
+                fetchURL = unicodedata.normalize('NFKD', fetchURL).encode('ascii','ignore')
             curl.setopt(curl.URL, fetchURL)
             if self.sslcacert and self.sslclientcert and self.sslclientkey:
                 curl.setopt(curl.CAINFO, self.sslcacert)

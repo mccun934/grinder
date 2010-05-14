@@ -22,11 +22,10 @@ LOG = logging.getLogger("PackageFetch")
 
 class PackageFetch(BaseFetch):
     
-    def __init__(self, systemId, baseURL, channelLabel, savePath, cacert=None):
-        BaseFetch.__init__(self, cacert=cacert)
+    def __init__(self, systemId, baseURL, channelLabel, savePath):
+        BaseFetch.__init__(self)
         self.systemId = systemId
         self.baseURL = baseURL
-        self.caCert = cacert
         self.rhnComm = RHNComm(baseURL, self.systemId)
         self.channelLabel = channelLabel
         self.savePath = savePath
@@ -63,8 +62,7 @@ if __name__ == "__main__":
     baseURL = "http://satellite.rhn.redhat.com"
     channelLabel = "rhel-i386-server-vt-5"
     savePath = "./test123"
-    caCert = "/usr/share/rhn/RHNS-CA-CERT"
-    pf = PackageFetch(systemId, baseURL, channelLabel, savePath, cacert=caCert)
+    pf = PackageFetch(systemId, baseURL, channelLabel, savePath)
     pkg = {}
     pkg['nevra'] = "Virtualization-es-ES-5.2-9.noarch.rpm"
     pkg['fetch_name'] = "Virtualization-es-ES-5.2-9:.noarch.rpm"
