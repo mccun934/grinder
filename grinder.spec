@@ -1,7 +1,7 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: grinder
-Version: 0.0.42
+Version: 0.0.43
 Release: 1%{?dist}
 Summary: A tool synching content
 
@@ -47,6 +47,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon May 17 2010 Pradeep Kilambi <pkilambi@redhat.com> 0.0.43-1
+- 
+
 * Fri May 14 2010 John Matthews <jwmatthews@gmail.com> 0.0.42-1
 - Updates for Package/Kickstart fetch to work with changes in BaseFetch Note:
   RHN comm to https is currently broken, http is working (jwmatthews@gmail.com)
