@@ -145,7 +145,7 @@ class YumRepoGrinder(object):
             #urljoin doesnt like epoch in rpm name so using string concat
             info['fileName'] = pkg.__str__() + ".rpm"
             info['downloadurl'] = self.yumFetch.repourl + '/' + pkg.relativepath
-            info['savepath'] = self.yumFetch.repo_dir
+            info['savepath'] = self.yumFetch.repo_dir + '/' + os.path.dirname(pkg.relativepath)
             info['checksumtype'], info['checksum'], status = pkg.checksums[0]
             info['size'] = pkg.size
             self.downloadinfo.append(info)
@@ -161,7 +161,7 @@ class YumRepoGrinder(object):
             relativepath = dpkg.deltas.values()[0].filename
             info['fileName'] = dpkg.deltas.values()[0].filename
             info['downloadurl'] = self.yumFetch.repourl + '/' + relativepath
-            info['savepath'] = self.yumFetch.repo_dir
+            info['savepath'] = self.yumFetch.repo_dir + '/' + os.path.dirname(relativepath)
             info['checksumtype'] = dpkg.deltas.values()[0].checksum_type
             info['checksum'] = dpkg.deltas.values()[0].checksum
             info['size'] = dpkg.deltas.values()[0].size
