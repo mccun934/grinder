@@ -25,7 +25,7 @@ from optparse import OptionParser
 from RepoFetch import YumRepoGrinder
 from RHNSync import RHNSync
 
-LOG = logging.getLogger("GrinderCLI")
+LOG = logging.getLogger("grinder.GrinderCLI")
 
 class CliDriver(object):
     """ Base class for all sub-commands. """

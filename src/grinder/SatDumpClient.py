@@ -20,7 +20,7 @@ import logging
 
 from rhn_transport import RHNTransport
 
-LOG = logging.getLogger("SatDumpClient")
+LOG = logging.getLogger("grinder.SatDumpClient")
 class SatDumpClient(object):
     def __init__(self, url, verbose=False, transport=None):
         self.baseURL = url

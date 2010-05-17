@@ -29,7 +29,7 @@ from PrestoParser import PrestoParser
 from ParallelFetch import ParallelFetch
 from BaseFetch import BaseFetch
 
-LOG = logging.getLogger("RepoFetch")
+LOG = logging.getLogger("grinder.RepoFetch")
 
 class RepoFetch(BaseFetch):
     """

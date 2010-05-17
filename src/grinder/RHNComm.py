@@ -20,7 +20,7 @@ import urllib
 import xmlrpclib
 import urlparse
 
-LOG = logging.getLogger("RHNComm")
+LOG = logging.getLogger("grinder.RHNComm")
 
 from GrinderExceptions import GetRequestException
 

@@ -17,7 +17,7 @@ import logging
 
 from BaseFetch import BaseFetch
 from RHNComm import RHNComm
-LOG = logging.getLogger("KickstartFetch")
+LOG = logging.getLogger("grinder.KickstartFetch")
 
 
 

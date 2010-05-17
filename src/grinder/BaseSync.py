@@ -24,7 +24,7 @@ import rpmUtils
 import rpmUtils.miscutils
 
 
-LOG = logging.getLogger("BaseSync")
+LOG = logging.getLogger("grinder.BaseSync")
 class BaseSync(object):
 
     def __init__(self):

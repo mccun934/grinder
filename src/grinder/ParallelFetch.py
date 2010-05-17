@@ -23,7 +23,7 @@ import Queue
 
 from BaseFetch import BaseFetch
 
-LOG = logging.getLogger("ParallelFetch")
+LOG = logging.getLogger("grinder.ParallelFetch")
 
 class SyncReport:
     def __init__(self):

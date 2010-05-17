@@ -17,7 +17,7 @@ import logging
 
 from BaseFetch import BaseFetch
 from RHNComm import RHNComm
-LOG = logging.getLogger("PackageFetch")
+LOG = logging.getLogger("grinder.PackageFetch")
 
 
 class PackageFetch(BaseFetch):

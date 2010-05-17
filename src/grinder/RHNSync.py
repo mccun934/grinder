@@ -47,7 +47,7 @@ from SatDumpClient import SatDumpClient
 from RHNComm import RHNComm
 from BaseSync import BaseSync
 
-LOG = logging.getLogger("RHNSync")
+LOG = logging.getLogger("grinder.RHNSync")
 
 class RHNSync(BaseSync):
     def __init__(self):
@@ -109,6 +109,7 @@ class RHNSync(BaseSync):
         return self.cert
 
     def setSystemId(self, systemid):
+        LOG.debug("setSystemId() with %s" % (systemid))
         self.systemid = systemid
 
     def getSystemId(self):

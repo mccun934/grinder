@@ -24,7 +24,7 @@ import hashlib
 import types
 import unicodedata
 
-LOG = logging.getLogger("BaseFetch")
+LOG = logging.getLogger("grinder.BaseFetch")
 
 class BaseFetch(object):
     STATUS_NOOP = 'noop'
