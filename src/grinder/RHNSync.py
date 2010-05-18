@@ -332,6 +332,7 @@ class RHNSync(BaseSync):
                 info["ksLabel"] = ksLbl
                 info["channelLabel"] = channelLabel
                 info["savePath"] = ksSavePath
+                info["hashtype"] = ksFile["hashtype"]
                 ksFiles.append(info)
         ksFetch = KickstartFetch(self.systemid, self.baseURL)
         numThreads = int(self.parallel)
