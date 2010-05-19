@@ -9,7 +9,7 @@ cert: /etc/sysconfig/rhn/entitlement-cert.xml
 systemid: /etc/sysconfig/rhn/systemid
 
 # True/False for fetching all packages, if False only fetch latest packages
-all: False
+all: True
 
 # Integer to control number of threads to use for fetching packages
 parallel: 20
@@ -18,7 +18,7 @@ parallel: 20
 verbose: False
 
 # True/False to flag if we should remove older rpms
-removeold: True
+removeold: False
 
 # Integer to specify how many old packages to keep.
 # Only used if 'removeold' is set to True
